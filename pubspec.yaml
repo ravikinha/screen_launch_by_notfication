@@ -1,7 +1,7 @@
 name: screen_launch_by_notfication
 description: A Flutter plugin to detect if the app was launched by tapping a notification and retrieve notification payload, enabling splash screen bypass and direct routing to notification screens.
-version: 1.0.0
-homepage: https://github.com/ravikinha/screen_launch_by_notfication
+version: 1.1.0
+homepage: https://swiftflutter.com/dynamicnotification
 repository: https://github.com/ravikinha/screen_launch_by_notfication
 issue_tracker: https://github.com/ravikinha/screen_launch_by_notfication/issues
 

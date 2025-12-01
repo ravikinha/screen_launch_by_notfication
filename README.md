@@ -2,6 +2,8 @@
 
 A Flutter plugin that detects if your app was launched by tapping a notification and retrieves the notification payload. This enables you to skip splash screens and route directly to notification-specific screens, just like native apps.
 
+📚 **Learn more:** [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
+
 ## Features
 
 ✅ **Detect notification launches** - Know when your app was opened from a notification  
@@ -30,7 +32,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  screen_launch_by_notfication: ^1.0.0
+  screen_launch_by_notfication: ^1.1.0
   flutter_local_notifications: ^19.5.0  # Recommended for sending notifications
 ```
 
@@ -491,6 +493,40 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+## SwiftFlutterMaterial Widget
+
+Version 1.1.0 introduces `SwiftFlutterMaterial`, a powerful widget that automatically handles notification-based routing:
+
+```dart
+SwiftFlutterMaterial(
+  initialRoute: '/splash',
+  homeRoute: '/home',
+  routes: {
+    '/splash': (_) => SplashScreen(),
+    '/notification': (_) => NotificationScreen(),
+    '/home': (_) => HomeScreen(),
+  },
+  onNotificationLaunch: ({required isFromNotification, required payload}) {
+    if (isFromNotification) {
+      return '/notification';
+    }
+    return null; // Use initialRoute
+  },
+)
+```
+
+**Features:**
+- ✅ Automatic notification detection
+- ✅ Custom routing based on conditions
+- ✅ Smart back navigation (goes to home instead of exiting)
+- ✅ Payload access in routes via `routesWithPayload`
+- ✅ Loading state while checking notification status
+- ✅ Error handling with fallback to initial route
+
+Learn more about `SwiftFlutterMaterial` at [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
+
 ## Support
+
+📚 **Documentation:** [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
 
 If you encounter any issues or have questions, please file an issue on the [GitHub repository](https://github.com/ravikinha/screen_launch_by_notfication/issues).
