@@ -134,6 +134,11 @@ import UserNotifications
     
     UserDefaults.standard.synchronize()
     
-    completionHandler([.banner, .sound, .badge])
+    // Use .alert for iOS 13 compatibility, .banner for iOS 14+
+    if #available(iOS 14.0, *) {
+      completionHandler([.banner, .sound, .badge])
+    } else {
+      completionHandler([.alert, .sound, .badge])
+    }
   }
 }
