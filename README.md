@@ -318,7 +318,46 @@ import UserNotifications
 
 ## Usage
 
-### Basic Usage
+### Using SwiftFlutterMaterial Widget (Recommended)
+
+The easiest way to use this plugin is with the `SwiftFlutterMaterial` widget:
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:screen_launch_by_notfication/screen_launch_by_notfication.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SwiftFlutterMaterial(
+      initialRoute: '/splash',
+      homeRoute: '/home',
+      routes: {
+        '/splash': (_) => SplashScreen(),
+        '/notification': (_) => NotificationScreen(),
+        '/home': (_) => HomeScreen(),
+      },
+      onNotificationLaunch: ({required isFromNotification, required payload}) {
+        if (isFromNotification) {
+          return '/notification';
+        }
+        return null;
+      },
+    );
+  }
+}
+```
+
+Learn more about `SwiftFlutterMaterial` at [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
+
+### Basic Usage (Manual)
 
 ```dart
 import 'dart:convert';
