@@ -1,3 +1,5 @@
+export 'screen_launch_by_notfication_widget.dart';
+
 import 'screen_launch_by_notfication_platform_interface.dart';
 
 /// A Flutter plugin to detect if the app was launched by tapping a notification
