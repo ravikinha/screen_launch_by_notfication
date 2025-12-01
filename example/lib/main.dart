@@ -2,9 +2,13 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:screen_launch_by_notfication/screen_launch_by_notfication.dart';
 
 final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
     FlutterLocalNotificationsPlugin();
+
+final ScreenLaunchByNotfication screenLaunchByNotfication =
+    ScreenLaunchByNotfication();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,15 +16,11 @@ void main() async {
   // Initialize flutter_local_notifications
   await _initializeNotifications();
 
-  const channel = MethodChannel("launch_channel");
-
-  final dynamic response =
-      await channel.invokeMethod("isFromNotification") ?? {};
+  // Check if app was launched from notification using the plugin
+  final result = await screenLaunchByNotfication.isFromNotification();
   
-  final bool openFromNotification = 
-      response is Map ? (response["isFromNotification"] ?? false) : false;
-  final String payload = 
-      response is Map ? (response["payload"] ?? "{}") : "{}";
+  final bool openFromNotification = result['isFromNotification'] ?? false;
+  final String payload = result['payload'] ?? '{}';
 
   String initialRoute = openFromNotification
       ? "/notificationScreen"
@@ -78,10 +78,9 @@ Future<void> _initializeNotifications() async {
 void _onNotificationTapped(NotificationResponse response) {
   // This is called when a notification is tapped (after Flutter has started)
   // The payload is in response.payload
-  // Store it in native code for consistency
+  // Store it in native code for consistency using the plugin
   if (response.payload != null && response.payload!.isNotEmpty) {
-    const channel = MethodChannel("launch_channel");
-    channel.invokeMethod("storeNotificationPayload", response.payload);
+    screenLaunchByNotfication.storeNotificationPayload(response.payload!);
   }
 }
 
@@ -318,7 +317,6 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  final MethodChannel _channel = const MethodChannel("launch_channel");
   bool _isSending = false;
 
   Future<void> _sendTestNotification() async {
@@ -358,6 +356,9 @@ class _HomeScreenState extends State<HomeScreen> {
         'type': 'test',
       });
 
+      // Store notification payload using the plugin before sending
+      await screenLaunchByNotfication.storeNotificationPayload(payload);
+
       // Show notification with payload
       await flutterLocalNotificationsPlugin.show(
         DateTime.now().millisecondsSinceEpoch.remainder(100000),
@@ -366,9 +367,6 @@ class _HomeScreenState extends State<HomeScreen> {
         platformChannelSpecifics,
         payload: payload,
       );
-
-      // Store notification info in native code for detection
-      await _channel.invokeMethod("storeNotificationPayload", payload);
 
       // Show success message
       if (mounted) {
