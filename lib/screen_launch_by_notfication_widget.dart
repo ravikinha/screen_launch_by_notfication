@@ -36,6 +36,10 @@ class ScreenLaunchByNotificationApp extends StatefulWidget {
   /// The initial route when app is launched normally (not from notification).
   final String initialRoute;
 
+  /// The route to navigate to when back is pressed from notification screen.
+  /// If null, defaults to [initialRoute].
+  final String? homeRoute;
+
   /// The routes configuration for the app.
   /// 
   /// For routes that need access to notification payload, use [routesWithPayload].
@@ -52,7 +56,7 @@ class ScreenLaunchByNotificationApp extends StatefulWidget {
   final NotificationRouteCallback? onNotificationLaunch;
 
   /// Optional callback when navigation back occurs from notification screen.
-  /// If null, navigates to initialRoute.
+  /// If null, navigates to [homeRoute] or [initialRoute].
   final VoidCallback? onBackFromNotification;
 
   /// The title of the app.
@@ -76,6 +80,7 @@ class ScreenLaunchByNotificationApp extends StatefulWidget {
   const ScreenLaunchByNotificationApp({
     super.key,
     required this.initialRoute,
+    this.homeRoute,
     this.routes,
     this.routesWithPayload,
     this.onNotificationLaunch,
@@ -134,7 +139,7 @@ class _ScreenLaunchByNotificationAppState
           );
         } else {
           // Default behavior: check if '/notification' route exists
-          route = widget.routes.containsKey('/notification')
+          route = widget.routes!.containsKey('/notification')
               ? '/notification'
               : widget.initialRoute;
         }
@@ -173,6 +178,7 @@ class _ScreenLaunchByNotificationAppState
 
     return _NotificationAwareMaterialApp(
       initialRoute: _computedInitialRoute!,
+      homeRoute: widget.homeRoute ?? widget.initialRoute,
       routes: widget.routes,
       routesWithPayload: widget.routesWithPayload,
       notificationPayload: _notificationPayload,
@@ -189,6 +195,7 @@ class _ScreenLaunchByNotificationAppState
 
 class _NotificationAwareMaterialApp extends StatelessWidget {
   final String initialRoute;
+  final String homeRoute;
   final Map<String, WidgetBuilder>? routes;
   final Map<String, Widget Function(BuildContext, Map<String, dynamic>)>? routesWithPayload;
   final Map<String, dynamic> notificationPayload;
@@ -202,6 +209,7 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
 
   const _NotificationAwareMaterialApp({
     required this.initialRoute,
+    required this.homeRoute,
     this.routes,
     this.routesWithPayload,
     required this.notificationPayload,
@@ -245,7 +253,7 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
           if (route != initialRoute && _isNotificationRoute(route)) {
             return _NotificationRouteWrapper(
               child: widget,
-              initialRoute: initialRoute,
+              homeRoute: homeRoute,
               onBack: onBackFromNotification,
             );
           }
@@ -262,7 +270,7 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
           if (route != initialRoute && _isNotificationRoute(route)) {
             return _NotificationRouteWrapper(
               child: widget,
-              initialRoute: initialRoute,
+              homeRoute: homeRoute,
               onBack: onBackFromNotification,
             );
           }
@@ -287,12 +295,12 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
 
 class _NotificationRouteWrapper extends StatelessWidget {
   final Widget child;
-  final String initialRoute;
+  final String homeRoute;
   final VoidCallback? onBack;
 
   const _NotificationRouteWrapper({
     required this.child,
-    required this.initialRoute,
+    required this.homeRoute,
     this.onBack,
   });
 
@@ -306,8 +314,12 @@ class _NotificationRouteWrapper extends StatelessWidget {
         if (onBack != null) {
           onBack!();
         } else {
-          // Default: navigate to initial route
-          Navigator.of(context).pushReplacementNamed(initialRoute);
+          // Default: navigate to home route and clear the navigation stack
+          // This ensures we go to home instead of exiting the app
+          Navigator.of(context).pushNamedAndRemoveUntil(
+            homeRoute,
+            (route) => false, // Remove all previous routes
+          );
         }
       },
       child: child,

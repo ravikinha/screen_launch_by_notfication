@@ -68,6 +68,7 @@ class MyApp extends StatelessWidget {
     return ScreenLaunchByNotificationApp(
       title: 'Screen Launch by Notification',
       initialRoute: '/splash',
+      homeRoute: '/home', // Route to navigate to when back is pressed from notification
       routes: {
         '/splash': (_) => const SplashScreen(),
         '/notification': (_) => const NotificationScreen(),
@@ -82,10 +83,11 @@ class MyApp extends StatelessWidget {
         // Return null to use initialRoute
         return null;
       },
-      // Handle back navigation from notification screen
+      // Handle back navigation from notification screen (optional)
+      // If not provided, defaults to navigating to homeRoute
       onBackFromNotification: () {
-        // This will be called when user presses back from notification screen
-        // Default behavior navigates to initialRoute
+        // Custom back behavior can be added here if needed
+        // Otherwise, it will automatically navigate to homeRoute
       },
     );
   }
