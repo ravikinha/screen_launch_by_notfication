@@ -272,7 +272,7 @@ packages:
       path: ".."
       relative: true
     source: path
-    version: "1.0.0"
+    version: "1.1.0"
   sky_engine:
     dependency: transitive
     description: flutter
@@ -310,6 +310,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  swift_flutter:
+    dependency: transitive
+    description:
+      name: swift_flutter
+      sha256: "3c5532a2fc00bfe0e26477c06eaa46b0185a274a23f737d55b3fc0ba1f0202c5"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.2.1"
   sync_http:
     dependency: transitive
     description:

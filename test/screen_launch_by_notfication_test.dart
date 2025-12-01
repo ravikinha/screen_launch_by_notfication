@@ -10,6 +10,18 @@ class MockScreenLaunchByNotficationPlatform
 
   @override
   Future<String?> getPlatformVersion() => Future.value('42');
+
+  @override
+  Future<Map<String, dynamic>> isFromNotification() {
+    // TODO: implement isFromNotification
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<bool> storeNotificationPayload(String payload) {
+    // TODO: implement storeNotificationPayload
+    throw UnimplementedError();
+  }
 }
 
 void main() {
