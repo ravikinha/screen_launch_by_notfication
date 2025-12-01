@@ -77,7 +77,7 @@ class SwiftFlutterMaterial extends StatefulWidget {
   /// Additional MaterialApp properties can be passed via this builder.
   final Widget Function(BuildContext, Widget?)? builder;
 
-  const ScreenLaunchByNotificationApp({
+  const SwiftFlutterMaterial({
     super.key,
     required this.initialRoute,
     this.homeRoute,
