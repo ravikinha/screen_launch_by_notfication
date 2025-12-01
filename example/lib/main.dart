@@ -68,40 +68,35 @@ void main() async {
   // Initialize flutter_local_notifications
   await _initializeNotifications();
 
-  // Check if app was launched from notification using the plugin
-  final result = await screenLaunchByNotfication.isFromNotification();
-
-  final bool openFromNotification = result['isFromNotification'] ?? false;
-  final String payload = result['payload'] ?? '{}';
-
-  String initialRoute = openFromNotification
-      ? "/notificationScreen"
-      : "/normalSplash";
-
-  runApp(MyApp(initialRoute: initialRoute, notificationPayload: payload));
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  final String initialRoute;
-  final String notificationPayload;
-
-  const MyApp({
-    super.key,
-    required this.initialRoute,
-    required this.notificationPayload,
-  });
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return ScreenLaunchByNotificationApp(
       title: 'Screen Launch by Notification',
-      initialRoute: initialRoute,
-      routes: {
-        "/normalSplash": (_) => const SplashScreen(),
-        "/notificationScreen": (_) =>
-            NotificationScreen(payload: notificationPayload),
-        "/home": (_) => const HomeScreen(),
+      initialRoute: '/normalSplash',
+      homeRoute: '/home', // Route to navigate to when back is pressed from notification
+      // Use routesWithPayload to pass notification payload to NotificationScreen
+      routesWithPayload: {
+        "/normalSplash": (context, payload) => const SplashScreen(),
+        "/notificationScreen": (context, payload) => NotificationScreen(payload: payload),
+        "/home": (context, payload) => const HomeScreen(),
       },
+      // Custom route logic based on notification launch
+      onNotificationLaunch: ({required isFromNotification, required payload}) {
+        if (isFromNotification) {
+          // Route to notification screen when launched from notification
+          return '/notificationScreen';
+        }
+        // Return null to use initialRoute
+        return null;
+      },
+      // Handle back navigation from notification screen (optional)
+      // If not provided, defaults to navigating to homeRoute
     );
   }
 }
@@ -164,16 +159,12 @@ class _SplashScreenState extends State<SplashScreen> {
 }
 
 class NotificationScreen extends StatelessWidget {
-  final String payload;
+  final Map<String, dynamic>? payload;
 
-  const NotificationScreen({super.key, required this.payload});
+  const NotificationScreen({super.key, this.payload});
 
   Map<String, dynamic> getPayloadMap() {
-    try {
-      return jsonDecode(payload) as Map<String, dynamic>;
-    } catch (e) {
-      return {};
-    }
+    return payload ?? {};
   }
 
   @override
