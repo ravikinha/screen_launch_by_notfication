@@ -18,7 +18,7 @@ typedef NotificationRouteCallback = String? Function({
 /// 
 /// Example:
 /// ```dart
-/// ScreenLaunchByNotificationApp(
+/// SwiftFlutterMaterial(
 ///   initialRoute: '/home',
 ///   routes: {
 ///     '/home': (context) => HomeScreen(),
@@ -32,7 +32,7 @@ typedef NotificationRouteCallback = String? Function({
 ///   },
 /// )
 /// ```
-class ScreenLaunchByNotificationApp extends StatefulWidget {
+class SwiftFlutterMaterial extends StatefulWidget {
   /// The initial route when app is launched normally (not from notification).
   final String initialRoute;
 
@@ -97,12 +97,12 @@ class ScreenLaunchByNotificationApp extends StatefulWidget {
         );
 
   @override
-  State<ScreenLaunchByNotificationApp> createState() =>
-      _ScreenLaunchByNotificationAppState();
+  State<SwiftFlutterMaterial> createState() =>
+      _SwiftFlutterMaterialState();
 }
 
-class _ScreenLaunchByNotificationAppState
-    extends State<ScreenLaunchByNotificationApp> {
+class _SwiftFlutterMaterialState
+    extends State<SwiftFlutterMaterial> {
   final ScreenLaunchByNotfication _plugin = ScreenLaunchByNotfication();
   String? _computedInitialRoute;
   Map<String, dynamic> _notificationPayload = {};

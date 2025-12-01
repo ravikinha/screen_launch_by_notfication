@@ -65,7 +65,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenLaunchByNotificationApp(
+    return SwiftFlutterMaterial(
       title: 'Screen Launch by Notification',
       initialRoute: '/splash',
       homeRoute: '/home', // Route to navigate to when back is pressed from notification

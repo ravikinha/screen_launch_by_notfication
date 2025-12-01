@@ -76,7 +76,7 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ScreenLaunchByNotificationApp(
+    return SwiftFlutterMaterial(
       title: 'Screen Launch by Notification',
       initialRoute: '/normalSplash',
       homeRoute: '/home', // Route to navigate to when back is pressed from notification
@@ -393,12 +393,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
+        appBar: AppBar(
         title: const Text('Home Screen'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
-      ),
-      body: Center(
+        ),
+        body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
