@@ -66,28 +66,28 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwiftFlutterMaterial(
-      title: 'Screen Launch by Notification',
-      initialRoute: '/splash',
-      homeRoute: '/home', // Route to navigate to when back is pressed from notification
-      routes: {
-        '/splash': (_) => const SplashScreen(),
-        '/notification': (_) => const NotificationScreen(),
-        '/home': (_) => const HomeScreen(),
-      },
+      materialApp: MaterialApp(
+        title: 'Screen Launch by Notification',
+        initialRoute: '/splash',
+        routes: {
+          '/splash': (_) => const SplashScreen(),
+          '/notification': (_) => const NotificationScreen(),
+          '/home': (_) => const HomeScreen(),
+        },
+      ),
       // Custom route logic based on notification launch
       onNotificationLaunch: ({required isFromNotification, required payload}) {
+        print('App launched from notification: $isFromNotification, payload: $payload');
+        
         if (isFromNotification) {
           // Route to notification screen when launched from notification
+          print('Routing to notification screen');
           return '/notification';
         }
-        // Return null to use initialRoute
+        
+        // Return null to use initialRoute from MaterialApp
+        print('Using default initialRoute');
         return null;
-      },
-      // Handle back navigation from notification screen (optional)
-      // If not provided, defaults to navigating to homeRoute
-      onBackFromNotification: () {
-        // Custom back behavior can be added here if needed
-        // Otherwise, it will automatically navigate to homeRoute
       },
     );
   }

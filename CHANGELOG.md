@@ -1,3 +1,14 @@
+## 2.0.0
+
+* 🎉 **Major API Update**: `SwiftFlutterMaterial` now accepts `MaterialApp` or `GetMaterialApp` instances
+* ✨ **Zero Native Setup**: Plugin now handles all native code automatically - no need to modify MainActivity or AppDelegate
+* 🚀 **GetMaterialApp Support**: Full support for GetX navigation with `GetMaterialApp`
+* 🎯 **Simplified API**: Pass your existing `MaterialApp` or `GetMaterialApp` widget - all routing properties are automatically managed
+* 🔧 **Better Integration**: Works seamlessly with your existing app structure without code duplication
+* 📦 **Self-Contained Plugin**: All native implementation moved to plugin itself - works for all projects out of the box
+* 🎨 **Flexible Configuration**: Use `onNotificationLaunch` callback to customize routing based on notification status and payload
+* Learn more: https://swiftflutter.com/dynamicnotification
+
 ## 1.1.0
 
 * Added `SwiftFlutterMaterial` widget for automatic notification-based routing

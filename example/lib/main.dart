@@ -76,28 +76,61 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Example with MaterialApp
     return SwiftFlutterMaterial(
-      title: 'Screen Launch by Notification',
-      initialRoute: '/normalSplash',
-      homeRoute: '/home', // Route to navigate to when back is pressed from notification
-      // Use routesWithPayload to pass notification payload to NotificationScreen
-      routesWithPayload: {
-        "/normalSplash": (context, payload) => const SplashScreen(),
-        "/notificationScreen": (context, payload) => NotificationScreen(payload: payload),
-        "/home": (context, payload) => const HomeScreen(),
-      },
+      materialApp: MaterialApp(
+        title: 'Screen Launch by Notification',
+        initialRoute: '/normalSplash',
+        routes: {
+          "/normalSplash": (context) => const SplashScreen(),
+          "/notificationScreen": (context) {
+            // Get notification payload from the plugin if needed
+            return const NotificationScreen();
+          },
+          "/home": (context) => const HomeScreen(),
+        },
+      ),
       // Custom route logic based on notification launch
+      // This callback is always called when the app starts
       onNotificationLaunch: ({required isFromNotification, required payload}) {
+        print(
+          'App launched from notification: $isFromNotification, payload: $payload',
+        );
+
         if (isFromNotification) {
           // Route to notification screen when launched from notification
+          print('Routing to notification screen');
           return '/notificationScreen';
         }
-        // Return null to use initialRoute
+
+        // Return null to use initialRoute from MaterialApp
+        print('Using default initialRoute');
         return null;
       },
-      // Handle back navigation from notification screen (optional)
-      // If not provided, defaults to navigating to homeRoute
     );
+
+    // Alternative: Example with GetMaterialApp
+    // Uncomment to use GetMaterialApp instead:
+    /*
+    return SwiftFlutterMaterial(
+      getMaterialApp: GetMaterialApp(
+        title: 'Screen Launch by Notification',
+        initialRoute: '/normalSplash',
+        routes: {
+          "/normalSplash": (context) => const SplashScreen(),
+          "/notificationScreen": (context) => const NotificationScreen(),
+          "/home": (context) => const HomeScreen(),
+        },
+      ),
+      onNotificationLaunch: ({required isFromNotification, required payload}) {
+        print('App launched from notification: $isFromNotification, payload: $payload');
+        if (isFromNotification) {
+          return '/notificationScreen';
+        }
+        return null; // Use initialRoute from GetMaterialApp
+      },
+    );
+    */
   }
 }
 
@@ -393,12 +426,12 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
+      appBar: AppBar(
         title: const Text('Home Screen'),
         backgroundColor: Colors.green,
         foregroundColor: Colors.white,
-        ),
-        body: Center(
+      ),
+      body: Center(
         child: Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(

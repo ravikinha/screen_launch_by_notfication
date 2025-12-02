@@ -32,8 +32,9 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  screen_launch_by_notfication: ^1.1.0
+  screen_launch_by_notfication: ^2.0.0
   flutter_local_notifications: ^19.5.0  # Recommended for sending notifications
+  get: ^4.6.6  # Required only if using GetMaterialApp
 ```
 
 Then run:
@@ -44,283 +45,47 @@ flutter pub get
 
 ### Android Setup
 
-1. **Enable core library desugaring** in `android/app/build.gradle.kts`:
+**No native code setup required!** 🎉 The plugin handles everything automatically.
+
+Just ensure you have the required dependencies in your `android/app/build.gradle.kts`:
 
 ```kotlin
 android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
-        isCoreLibraryDesugaringEnabled = true
-    }
-}
-
-dependencies {
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
-}
-```
-
-2. **Update your MainActivity.kt** to detect notification taps:
-
-```kotlin
-package com.example.your_app
-
-import android.os.Bundle
-import io.flutter.embedding.android.FlutterActivity
-import io.flutter.embedding.engine.FlutterEngine
-import io.flutter.plugin.common.MethodChannel
-import org.json.JSONObject
-
-class MainActivity : FlutterActivity() {
-    private val CHANNEL = "launch_channel"
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        checkNotificationIntent(intent)
-    }
-
-    override fun onNewIntent(intent: android.content.Intent) {
-        super.onNewIntent(intent)
-        setIntent(intent)
-        checkNotificationIntent(intent)
-    }
-
-    private fun checkNotificationIntent(intent: android.content.Intent) {
-        val prefs = getSharedPreferences("launchStore", MODE_PRIVATE)
-
-        // Check if app opened by notification tap
-        val isFromFlutterNotification = intent.action == "com.dexterous.flutterlocalnotifications.NOTIFICATION_TAPPED" ||
-                intent.hasExtra("notification_launch_app")
-        val isFromCustomNotification = intent.extras?.getBoolean("fromNotification") == true
-        val hasPayload = intent.extras?.containsKey("payload") == true
-
-        if (isFromFlutterNotification || isFromCustomNotification || hasPayload) {
-            prefs.edit().putBoolean("openFromNotification", true).apply()
-
-            // Extract notification payload
-            val payload = JSONObject()
-            
-            val flutterPayload = intent.extras?.getString("payload")
-            if (!flutterPayload.isNullOrEmpty()) {
-                try {
-                    val payloadObj = JSONObject(flutterPayload)
-                    payloadObj.keys().forEach { key ->
-                        payload.put(key, payloadObj.get(key))
-                    }
-                } catch (e: Exception) {
-                    payload.put("payload", flutterPayload)
-                }
-            }
-            
-            val storedPayload = prefs.getString("pendingNotificationPayload", null)
-            if (storedPayload != null) {
-                try {
-                    val storedObj = JSONObject(storedPayload)
-                    storedObj.keys().forEach { key ->
-                        if (!payload.has(key)) {
-                            payload.put(key, storedObj.get(key))
-                        }
-                    }
-                    prefs.edit().remove("pendingNotificationPayload").apply()
-                } catch (e: Exception) {
-                    // Ignore
-                }
-            }
-            
-            intent.extras?.keySet()?.forEach { key ->
-                if (key != "payload") {
-                    when (val value = intent.extras?.get(key)) {
-                        is String -> payload.put(key, value)
-                        is Int -> payload.put(key, value)
-                        is Boolean -> payload.put(key, value)
-                        is Double -> payload.put(key, value)
-                        else -> payload.put(key, value.toString())
-                    }
-                }
-            }
-            
-            if (payload.length() > 0) {
-                prefs.edit().putString("notificationPayload", payload.toString()).apply()
-            }
-        }
-    }
-
-    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
-        super.configureFlutterEngine(flutterEngine)
-
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "isFromNotification" -> {
-                        val prefs = getSharedPreferences("launchStore", MODE_PRIVATE)
-                        val isFromNotification = prefs.getBoolean("openFromNotification", false)
-                        val payload = prefs.getString("notificationPayload", null)
-                        
-                        val response = mapOf(
-                            "isFromNotification" to isFromNotification,
-                            "payload" to (payload ?: "{}")
-                        )
-                        
-                        result.success(response)
-
-                        prefs.edit()
-                            .putBoolean("openFromNotification", false)
-                            .putString("notificationPayload", null)
-                            .apply()
-                    }
-                    "storeNotificationPayload" -> {
-                        try {
-                            val payload = call.arguments as? String ?: "{}"
-                            val prefs = getSharedPreferences("launchStore", MODE_PRIVATE)
-                            prefs.edit().putString("pendingNotificationPayload", payload).apply()
-                            result.success(true)
-                        } catch (e: Exception) {
-                            result.error("ERROR", "Failed to store payload: ${e.message}", null)
-                        }
-                    }
-                    else -> result.notImplemented()
-                }
-            }
     }
 }
 ```
 
 ### iOS Setup
 
-Update your `AppDelegate.swift`:
+**No native code setup required!** 🎉 The plugin handles everything automatically.
+
+For iOS, you only need to request notification permissions in your app (if you haven't already):
 
 ```swift
-import Flutter
-import UIKit
 import UserNotifications
 
-@main
-@objc class AppDelegate: FlutterAppDelegate {
-  override func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
-  ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    
-    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-      if granted {
-        DispatchQueue.main.async {
-          application.registerForRemoteNotifications()
-        }
-      }
-    }
-    
-    UNUserNotificationCenter.current().delegate = self
-    
-    if let notification = launchOptions?[.remoteNotification] as? [String: Any] {
-      UserDefaults.standard.set(true, forKey: "openFromNotification")
-      if let jsonData = try? JSONSerialization.data(withJSONObject: notification),
-         let jsonString = String(data: jsonData, encoding: .utf8) {
-        UserDefaults.standard.set(jsonString, forKey: "notificationPayload")
-      }
-      UserDefaults.standard.synchronize()
-    }
-    
-    let result = super.application(application, didFinishLaunchingWithOptions: launchOptions)
-    
+// In your AppDelegate or wherever you request permissions
+UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+  if granted {
     DispatchQueue.main.async {
-      if let controller = self.window?.rootViewController as? FlutterViewController {
-        let channel = FlutterMethodChannel(name: "launch_channel",
-                                           binaryMessenger: controller.binaryMessenger)
-        
-        channel.setMethodCallHandler { call, result in
-          if call.method == "isFromNotification" {
-            let flag = UserDefaults.standard.bool(forKey: "openFromNotification")
-            let payload = UserDefaults.standard.string(forKey: "notificationPayload") ?? "{}"
-            
-            let response: [String: Any] = [
-              "isFromNotification": flag,
-              "payload": payload
-            ]
-            
-            result(response)
-            
-            UserDefaults.standard.set(false, forKey: "openFromNotification")
-            UserDefaults.standard.removeObject(forKey: "notificationPayload")
-            UserDefaults.standard.synchronize()
-          } else if call.method == "storeNotificationPayload" {
-            if let payload = call.arguments as? String {
-              UserDefaults.standard.set(payload, forKey: "pendingNotificationPayload")
-              UserDefaults.standard.synchronize()
-              result(true)
-            } else {
-              result(FlutterMethodNotImplemented)
-            }
-          } else {
-            result(FlutterMethodNotImplemented)
-          }
-        }
-      }
+      UIApplication.shared.registerForRemoteNotifications()
     }
-    
-    return result
-  }
-  
-  override func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    didReceive response: UNNotificationResponse,
-    withCompletionHandler completionHandler: @escaping () -> Void
-  ) {
-    UserDefaults.standard.set(true, forKey: "openFromNotification")
-    
-    var payloadString: String?
-    
-    if let payload = response.notification.request.content.userInfo["payload"] as? String {
-      payloadString = payload
-    } else {
-      payloadString = UserDefaults.standard.string(forKey: "pendingNotificationPayload")
-      UserDefaults.standard.removeObject(forKey: "pendingNotificationPayload")
-    }
-    
-    if let payload = payloadString {
-      UserDefaults.standard.set(payload, forKey: "notificationPayload")
-    } else {
-      let userInfo = response.notification.request.content.userInfo
-      if let jsonData = try? JSONSerialization.data(withJSONObject: userInfo),
-         let jsonString = String(data: jsonData, encoding: .utf8) {
-        UserDefaults.standard.set(jsonString, forKey: "notificationPayload")
-      }
-    }
-    
-    UserDefaults.standard.synchronize()
-    
-    completionHandler()
-  }
-  
-  override func userNotificationCenter(
-    _ center: UNUserNotificationCenter,
-    willPresent notification: UNNotification,
-    withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
-  ) {
-    UserDefaults.standard.set(true, forKey: "openFromNotification")
-    
-    if let payload = notification.request.content.userInfo["payload"] as? String {
-      UserDefaults.standard.set(payload, forKey: "notificationPayload")
-    } else {
-      let userInfo = notification.request.content.userInfo
-      if let jsonData = try? JSONSerialization.data(withJSONObject: userInfo),
-         let jsonString = String(data: jsonData, encoding: .utf8) {
-        UserDefaults.standard.set(jsonString, forKey: "notificationPayload")
-      }
-    }
-    
-    UserDefaults.standard.synchronize()
-    
-    completionHandler([.banner, .sound, .badge])
   }
 }
 ```
+
+**Note:** The plugin automatically handles all notification detection and payload storage. No need to modify `AppDelegate.swift` or `MainActivity.kt`!
 
 ## Usage
 
 ### Using SwiftFlutterMaterial Widget (Recommended)
 
-The easiest way to use this plugin is with the `SwiftFlutterMaterial` widget:
+The easiest way to use this plugin is with the `SwiftFlutterMaterial` widget. Simply wrap your existing `MaterialApp` or `GetMaterialApp`:
+
+#### With MaterialApp
 
 ```dart
 import 'package:flutter/material.dart';
@@ -337,23 +102,71 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SwiftFlutterMaterial(
-      initialRoute: '/splash',
-      homeRoute: '/home',
-      routes: {
-        '/splash': (_) => SplashScreen(),
-        '/notification': (_) => NotificationScreen(),
-        '/home': (_) => HomeScreen(),
-      },
+      materialApp: MaterialApp(
+        title: 'My App',
+        theme: ThemeData(primarySwatch: Colors.blue),
+        initialRoute: '/splash',
+        routes: {
+          '/splash': (_) => SplashScreen(),
+          '/notification': (_) => NotificationScreen(),
+          '/home': (_) => HomeScreen(),
+        },
+      ),
       onNotificationLaunch: ({required isFromNotification, required payload}) {
         if (isFromNotification) {
           return '/notification';
         }
-        return null;
+        return null; // Use MaterialApp's initialRoute
       },
     );
   }
 }
 ```
+
+#### With GetMaterialApp
+
+```dart
+import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:screen_launch_by_notfication/screen_launch_by_notfication.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return SwiftFlutterMaterial(
+      getMaterialApp: GetMaterialApp(
+        title: 'My App',
+        theme: ThemeData(primarySwatch: Colors.blue),
+        initialRoute: '/splash',
+        getPages: [
+          GetPage(name: '/splash', page: () => SplashScreen()),
+          GetPage(name: '/notification', page: () => NotificationScreen()),
+          GetPage(name: '/home', page: () => HomeScreen()),
+        ],
+      ),
+      onNotificationLaunch: ({required isFromNotification, required payload}) {
+        if (isFromNotification) {
+          return '/notification';
+        }
+        return null; // Use GetMaterialApp's initialRoute
+      },
+    );
+  }
+}
+```
+
+**Key Features:**
+- ✅ Pass your existing `MaterialApp` or `GetMaterialApp` - no need to duplicate properties
+- ✅ All routing properties (routes, getPages, initialRoute, etc.) are automatically managed
+- ✅ Zero native code setup required
+- ✅ Works with your existing app structure
 
 Learn more about `SwiftFlutterMaterial` at [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
 
@@ -534,33 +347,22 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## SwiftFlutterMaterial Widget
 
-Version 1.1.0 introduces `SwiftFlutterMaterial`, a powerful widget that automatically handles notification-based routing:
+Version 2.0.0 introduces a completely redesigned `SwiftFlutterMaterial` widget with a simplified API:
 
-```dart
-SwiftFlutterMaterial(
-  initialRoute: '/splash',
-  homeRoute: '/home',
-  routes: {
-    '/splash': (_) => SplashScreen(),
-    '/notification': (_) => NotificationScreen(),
-    '/home': (_) => HomeScreen(),
-  },
-  onNotificationLaunch: ({required isFromNotification, required payload}) {
-    if (isFromNotification) {
-      return '/notification';
-    }
-    return null; // Use initialRoute
-  },
-)
-```
+**New in 2.0.0:**
+- ✅ Accepts `MaterialApp` or `GetMaterialApp` instances
+- ✅ Zero native code setup required
+- ✅ Automatic route management
+- ✅ Full GetX navigation support
+- ✅ Works seamlessly with existing app structure
 
 **Features:**
 - ✅ Automatic notification detection
-- ✅ Custom routing based on conditions
-- ✅ Smart back navigation (goes to home instead of exiting)
-- ✅ Payload access in routes via `routesWithPayload`
+- ✅ Custom routing based on conditions via `onNotificationLaunch` callback
+- ✅ All MaterialApp/GetMaterialApp properties are preserved and managed
 - ✅ Loading state while checking notification status
 - ✅ Error handling with fallback to initial route
+- ✅ Self-contained native implementation
 
 Learn more about `SwiftFlutterMaterial` at [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
 
