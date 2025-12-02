@@ -13,7 +13,6 @@ dependencies:
   flutter:
     sdk: flutter
   plugin_platform_interface: ^2.0.2
-  swift_flutter: ^2.2.1
   get: ^4.6.6
 
 dev_dependencies:
