@@ -48,19 +48,37 @@ class MyApp extends StatelessWidget {
         // Check for chat notification
         if (payload.containsKey('chatnotification')) {
           print('Routing to chat notification screen');
-          return '/chatPage';
+          return SwiftRouting(
+            route: '/chatPage',
+            payload: {
+              'chatId': payload['chatId']?.toString(),
+              'senderName': payload['senderName']?.toString(),
+              'message': payload['message']?.toString(),
+            },
+          );
         }
 
         // Check for order notification
         if (payload.containsKey('orderId')) {
           print('Routing to order screen');
-          return '/notificationScreen'; // You can create a dedicated order screen
+          return SwiftRouting(
+            route: '/notificationScreen',
+            payload: {
+              'orderId': payload['orderId']?.toString(),
+              'orderStatus': payload['orderStatus']?.toString(),
+            },
+          );
         }
 
         // Default: route to notification screen when launched from notification
+        // You can pass null payload if you don't need to pass data
+        // Example: return SwiftRouting(route: '/notificationScreen', payload: null);
         if (isFromNotification) {
           print('Routing to notification screen');
-          return '/notificationScreen';
+          return SwiftRouting(
+            route: '/notificationScreen',
+            payload: payload.isNotEmpty ? payload : null, // Pass full payload or null
+          );
         }
 
         // Return null to use initialRoute from MaterialApp

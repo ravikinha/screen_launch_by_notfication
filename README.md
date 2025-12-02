@@ -32,7 +32,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  screen_launch_by_notfication: ^2.1.0
+  screen_launch_by_notfication: ^2.2.0
   flutter_local_notifications: ^19.5.0  # Recommended for sending notifications
   get: ^4.6.6  # Required only if using GetMaterialApp
 ```
@@ -114,7 +114,10 @@ class MyApp extends StatelessWidget {
       ),
       onNotificationLaunch: ({required isFromNotification, required payload}) {
         if (isFromNotification) {
-          return '/notification';
+          return SwiftRouting(
+            route: '/notification',
+            payload: payload, // Pass full payload or null
+          );
         }
         return null; // Use MaterialApp's initialRoute
       },
@@ -153,7 +156,10 @@ class MyApp extends StatelessWidget {
       ),
       onNotificationLaunch: ({required isFromNotification, required payload}) {
         if (isFromNotification) {
-          return '/notification';
+          return SwiftRouting(
+            route: '/notification',
+            payload: payload, // Pass full payload or null
+          );
         }
         return null; // Use GetMaterialApp's initialRoute
       },
@@ -371,7 +377,7 @@ Version 2.1.0 introduces enhanced notification handling with real-time navigatio
 ```dart
 SwiftFlutterMaterial(
   materialApp: MaterialApp(
-    routes: {
+  routes: {
       '/home': (context) => HomeScreen(),
       '/chatPage': (context) => ChatScreen(),
       '/notificationScreen': (context) => NotificationScreen(),

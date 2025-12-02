@@ -4,10 +4,62 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:screen_launch_by_notfication/screen_launch_by_notfication.dart';
 
-/// A callback function that determines the route based on notification launch status.
+/// A class that represents a routing decision with route and payload.
 /// 
-/// Returns the route to navigate to, or null to use the default initial route.
-typedef NotificationRouteCallback = String? Function({
+/// Use this class to return route and payload information from [NotificationRouteCallback].
+/// 
+/// Example:
+/// ```dart
+/// onNotificationLaunch: ({required isFromNotification, required payload}) {
+///   if (isFromNotification) {
+///     return SwiftRouting(
+///       route: '/chatPage',
+///       payload: {
+///         'chatId': payload['chatId'],
+///         'userId': payload['userId'],
+///       },
+///     );
+///   }
+///   // You can also return a route without payload
+///   return SwiftRouting(
+///     route: '/notificationScreen',
+///     payload: null,
+///   );
+/// }
+/// ```
+class SwiftRouting {
+  /// The route name to navigate to
+  final String route;
+  
+  /// The payload data to pass to the route (optional)
+  final Map<String, dynamic>? payload;
+  
+  const SwiftRouting({
+    required this.route,
+    this.payload,
+  });
+}
+
+/// A callback function that determines the route and payload based on notification launch status.
+/// 
+/// Returns a [SwiftRouting] object with route and payload, or null to use the default initial route.
+/// 
+/// Example:
+/// ```dart
+/// onNotificationLaunch: ({required isFromNotification, required payload}) {
+///   if (isFromNotification) {
+///     return SwiftRouting(
+///       route: '/chatPage',
+///       payload: {
+///         'chatId': payload['chatId'],
+///         'userId': payload['userId'],
+///       },
+///     );
+///   }
+///   return null; // Use initialRoute from MaterialApp/GetMaterialApp
+/// }
+/// ```
+typedef NotificationRouteCallback = SwiftRouting? Function({
   required bool isFromNotification,
   required Map<String, dynamic> payload,
 });
@@ -45,7 +97,10 @@ typedef OnNotificationTapCallback = void Function({
 ///   ),
 ///   onNotificationLaunch: ({required isFromNotification, required payload}) {
 ///     if (isFromNotification) {
-///       return '/notification';
+///       return SwiftRouting(
+///         route: '/notification',
+///         payload: payload,
+///       );
 ///     }
 ///     return null; // Use initialRoute from MaterialApp
 ///   },
@@ -66,7 +121,10 @@ typedef OnNotificationTapCallback = void Function({
 ///   ),
 ///   onNotificationLaunch: ({required isFromNotification, required payload}) {
 ///     if (isFromNotification) {
-///       return '/notification';
+///       return SwiftRouting(
+///         route: '/notification',
+///         payload: payload,
+///       );
 ///     }
 ///     return null; // Use initialRoute from GetMaterialApp
 ///   },
@@ -81,10 +139,26 @@ class SwiftFlutterMaterial extends StatefulWidget {
   /// should be configured in this GetMaterialApp instance.
   final GetMaterialApp? getMaterialApp;
 
-  /// Optional callback to determine route based on notification launch.
+  /// Optional callback to determine route and payload based on notification launch.
   /// If provided, this callback will be called when the app is launched from a notification.
-  /// Return the route name to navigate to, or null to use the initialRoute from the app.
-  /// If null, defaults to '/notification' when launched from notification (if route exists).
+  /// Return a map with 'route' (String) and 'payload' (Map<String, dynamic>) keys,
+  /// or null to use the initialRoute from the app.
+  /// 
+  /// Example:
+  /// ```dart
+  /// onNotificationLaunch: ({required isFromNotification, required payload}) {
+  ///   if (isFromNotification) {
+  ///     return {
+  ///       'route': '/chatPage',
+  ///       'payload': {
+  ///         'chatId': payload['chatId'],
+  ///         'userId': payload['userId'],
+  ///       },
+  ///     };
+  ///   }
+  ///   return null; // Use initialRoute from MaterialApp/GetMaterialApp
+  /// }
+  /// ```
   final NotificationRouteCallback? onNotificationLaunch;
 
   /// Optional callback to handle notification taps when app is already running.
@@ -179,11 +253,21 @@ class _SwiftFlutterMaterialState
         
         try {
           // Call callback with isFromNotification=true since this is a notification tap
-          targetRoute = widget.onNotificationLaunch!(
+          final result = widget.onNotificationLaunch!(
             isFromNotification: true,
             payload: payload,
           );
-          debugPrint('[SwiftFlutterMaterial] Callback returned route: $targetRoute');
+          
+          if (result != null) {
+            targetRoute = result.route;
+            // Use payload from callback result, or keep original payload if null
+            payload = result.payload ?? payload;
+            debugPrint('[SwiftFlutterMaterial] Callback returned route: $targetRoute');
+            debugPrint('[SwiftFlutterMaterial] Callback returned payload: $payload');
+          } else {
+            debugPrint('[SwiftFlutterMaterial] Callback returned null, skipping navigation');
+            return;
+          }
         } catch (e, stackTrace) {
           debugPrint('[SwiftFlutterMaterial] Error in onNotificationLaunch callback: $e');
           debugPrint('[SwiftFlutterMaterial] Stack trace: $stackTrace');
@@ -220,13 +304,13 @@ class _SwiftFlutterMaterialState
         // Use GetX navigation
         debugPrint('[SwiftFlutterMaterial] Navigating to $targetRoute using GetX');
         try {
-          Get.toNamed(targetRoute, arguments: payload);
+          Get.toNamed(targetRoute, arguments: payload.isNotEmpty ? payload : null);
         } catch (e) {
           debugPrint('[SwiftFlutterMaterial] GetX navigation error: $e');
           // Fallback: try using navigator key if GetX fails
           final navigator = _navigatorKey.currentState;
           if (navigator != null) {
-            navigator.pushNamed(targetRoute, arguments: payload);
+            navigator.pushNamed(targetRoute, arguments: payload.isNotEmpty ? payload : null);
           }
         }
       } else {
@@ -237,7 +321,7 @@ class _SwiftFlutterMaterialState
         
         if (navigator != null) {
           debugPrint('[SwiftFlutterMaterial] Navigating to $targetRoute using MaterialApp Navigator');
-          navigator.pushNamed(targetRoute, arguments: payload);
+          navigator.pushNamed(targetRoute, arguments: payload.isNotEmpty ? payload : null);
         } else {
           debugPrint('[SwiftFlutterMaterial] Navigator not available yet, will retry');
           // Retry after a short delay
@@ -245,7 +329,7 @@ class _SwiftFlutterMaterialState
             final retryNavigator = materialAppNavigatorKey.currentState;
             if (retryNavigator != null) {
               debugPrint('[SwiftFlutterMaterial] Retrying navigation to $targetRoute');
-              retryNavigator.pushNamed(targetRoute!, arguments: payload);
+              retryNavigator.pushNamed(targetRoute!, arguments: payload.isNotEmpty ? payload : null);
             } else {
               debugPrint('[SwiftFlutterMaterial] Navigator still not available after retry');
             }
@@ -348,11 +432,21 @@ class _SwiftFlutterMaterialState
         debugPrint('[SwiftFlutterMaterial] payload: $payload');
         
         try {
-          route = widget.onNotificationLaunch!(
+          final result = widget.onNotificationLaunch!(
             isFromNotification: isFromNotification,
             payload: payload,
           );
-          debugPrint('[SwiftFlutterMaterial] Callback returned route: $route');
+          
+          if (result != null) {
+            route = result.route;
+            // Use payload from callback result, or keep original payload if null
+            payload = result.payload ?? payload;
+            debugPrint('[SwiftFlutterMaterial] Callback returned route: $route');
+            debugPrint('[SwiftFlutterMaterial] Callback returned payload: $payload');
+        } else {
+            debugPrint('[SwiftFlutterMaterial] Callback returned null, using initialRoute');
+            route = null; // Will use initialRoute below
+          }
         } catch (e, stackTrace) {
           debugPrint('[SwiftFlutterMaterial] Error in onNotificationLaunch callback: $e');
           debugPrint('[SwiftFlutterMaterial] Stack trace: $stackTrace');
@@ -378,7 +472,7 @@ class _SwiftFlutterMaterialState
         route = initialRoute; // Use initialRoute from app
       }
 
-      final finalRoute = route ?? initialRoute;
+      final finalRoute = route;
       debugPrint('[SwiftFlutterMaterial] Final computed route: $finalRoute');
 
       setState(() {
@@ -467,6 +561,31 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
       effectiveOnGenerateRoute = (settings) => null;
     }
 
+    // Create onGenerateInitialRoutes that passes payload to initial route
+    List<Route<dynamic>> Function(String)? effectiveOnGenerateInitialRoutes;
+    if (materialApp.onGenerateInitialRoutes != null) {
+      effectiveOnGenerateInitialRoutes = materialApp.onGenerateInitialRoutes;
+    } else {
+      // Default: generate initial route with payload
+      effectiveOnGenerateInitialRoutes = (String initialRoute) {
+        final route = MaterialPageRoute<dynamic>(
+          settings: RouteSettings(
+            name: initialRoute,
+            arguments: notificationPayload.isNotEmpty ? notificationPayload : null,
+          ),
+          builder: (context) {
+            final builder = enhancedRoutes[initialRoute];
+            if (builder != null) {
+              return builder(context);
+            }
+            // Fallback to home if route not found
+            return materialApp.home ?? const Scaffold(body: Center(child: Text('Route not found')));
+          },
+        );
+        return [route];
+      };
+    }
+
     return MaterialApp(
       key: materialApp.key,
       navigatorKey: materialApp.navigatorKey ?? navigatorKey,
@@ -483,7 +602,7 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
       localizationsDelegates: materialApp.localizationsDelegates,
       supportedLocales: materialApp.supportedLocales,
       onGenerateRoute: effectiveOnGenerateRoute,
-      onGenerateInitialRoutes: materialApp.onGenerateInitialRoutes,
+      onGenerateInitialRoutes: effectiveOnGenerateInitialRoutes,
       onUnknownRoute: materialApp.onUnknownRoute,
       navigatorObservers: materialApp.navigatorObservers ?? const [],
       restorationScopeId: materialApp.restorationScopeId,
@@ -543,6 +662,45 @@ class _NotificationAwareGetMaterialApp extends StatelessWidget {
     // Always use the computed initialRoute if we have routes/getPages
     final useInitialRoute = hasGetPages || hasOriginalRoutes;
 
+    // For GetMaterialApp, we'll use onGenerateRoute to inject payload for initial route
+    Route<dynamic>? Function(RouteSettings)? effectiveOnGenerateRoute;
+    if (getMaterialApp.onGenerateRoute != null) {
+      effectiveOnGenerateRoute = getMaterialApp.onGenerateRoute;
+    } else if (notificationPayload.isNotEmpty && useInitialRoute) {
+      // Default: generate route with payload for GetMaterialApp
+      effectiveOnGenerateRoute = (RouteSettings settings) {
+        // If this is the initial route and we have payload, inject it
+        if (settings.name == validatedInitialRoute && settings.arguments == null) {
+          return GetPageRoute(
+            settings: RouteSettings(
+              name: settings.name,
+              arguments: notificationPayload.isNotEmpty ? notificationPayload : null,
+            ),
+            page: () {
+              // Try to find the page in getPages
+              if (enhancedGetPages.isNotEmpty) {
+                try {
+                  final page = enhancedGetPages.firstWhere(
+                    (p) => p.name == settings.name,
+                  );
+                  return page.page();
+                } catch (e) {
+                  // If page not found, return first page
+                  return enhancedGetPages.first.page();
+                }
+              }
+              // Fallback
+              return const Scaffold(body: Center(child: Text('Route not found')));
+            },
+          );
+        }
+        // For other routes, use default GetX routing
+        return null;
+      };
+    } else {
+      effectiveOnGenerateRoute = getMaterialApp.onGenerateRoute;
+    }
+
     return GetMaterialApp(
       key: getMaterialApp.key,
       title: getMaterialApp.title ?? 'Flutter App',
@@ -550,7 +708,7 @@ class _NotificationAwareGetMaterialApp extends StatelessWidget {
       routes: getMaterialApp.routes ?? const {}, // Preserve MaterialApp routes
       getPages: hasGetPages ? enhancedGetPages : getMaterialApp.getPages,
       home: useInitialRoute ? null : getMaterialApp.home,
-      onGenerateRoute: getMaterialApp.onGenerateRoute,
+      onGenerateRoute: effectiveOnGenerateRoute,
       onGenerateInitialRoutes: getMaterialApp.onGenerateInitialRoutes,
       onUnknownRoute: getMaterialApp.onUnknownRoute,
       theme: getMaterialApp.theme,

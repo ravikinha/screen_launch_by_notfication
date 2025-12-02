@@ -1,3 +1,12 @@
+## 2.2.0
+
+* 🎯 **SwiftRouting Class**: New `SwiftRouting` class for type-safe routing with route and payload
+* 📦 **Nullable Payload Support**: Payload in `SwiftRouting` is now optional - you can pass `null` if no data is needed
+* 🔧 **Improved API**: `onNotificationLaunch` callback now returns `SwiftRouting?` instead of a map for better type safety
+* ✨ **Better Developer Experience**: Cleaner API with `SwiftRouting(route: '/path', payload: {...})` syntax
+* 📝 **Updated Examples**: Example app updated to demonstrate new `SwiftRouting` API
+* Learn more: https://swiftflutter.com/dynamicnotification
+
 ## 2.1.0
 
 * 🎯 **Dynamic Notification Routing**: `onNotificationLaunch` callback now works for both initial launch AND notification taps while app is running
