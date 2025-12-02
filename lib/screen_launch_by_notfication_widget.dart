@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -8,6 +9,14 @@ import 'package:screen_launch_by_notfication/screen_launch_by_notfication.dart';
 /// Returns the route to navigate to, or null to use the default initial route.
 typedef NotificationRouteCallback = String? Function({
   required bool isFromNotification,
+  required Map<String, dynamic> payload,
+});
+
+/// A callback function that handles notification taps when app is already running.
+/// 
+/// This is called when the user taps a notification while the app is open (foreground or background).
+/// You can use this to navigate to the appropriate screen.
+typedef OnNotificationTapCallback = void Function({
   required Map<String, dynamic> payload,
 });
 
@@ -78,11 +87,24 @@ class SwiftFlutterMaterial extends StatefulWidget {
   /// If null, defaults to '/notification' when launched from notification (if route exists).
   final NotificationRouteCallback? onNotificationLaunch;
 
+  /// Optional callback to handle notification taps when app is already running.
+  /// This is called when the user taps a notification while the app is open (foreground or background).
+  /// You can use this to navigate to the appropriate screen.
+  /// 
+  /// Example:
+  /// ```dart
+  /// onNotificationTap: ({required payload}) {
+  ///   Navigator.pushNamed(context, '/notification', arguments: payload);
+  /// }
+  /// ```
+  final OnNotificationTapCallback? onNotificationTap;
+
   const SwiftFlutterMaterial({
     super.key,
     this.materialApp,
     this.getMaterialApp,
     this.onNotificationLaunch,
+    this.onNotificationTap,
   }) : assert(
           materialApp != null || getMaterialApp != null,
           'Either materialApp or getMaterialApp must be provided',
@@ -103,11 +125,143 @@ class _SwiftFlutterMaterialState
   String? _computedInitialRoute;
   Map<String, dynamic> _notificationPayload = {};
   bool _isInitialized = false;
+  StreamSubscription<Map<String, dynamic>>? _notificationSubscription;
+  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
 
   @override
   void initState() {
     super.initState();
     _initializeRoute();
+    _setupNotificationListener();
+  }
+  
+  void _setupNotificationListener() {
+    // Listen for notification taps when app is already running
+    _notificationSubscription = _plugin.getNotificationStream().listen((event) {
+      debugPrint('[SwiftFlutterMaterial] Notification tapped while app is running');
+      debugPrint('[SwiftFlutterMaterial] Payload: ${event['payload']}');
+      
+      // Parse payload
+      final payloadString = event['payload']?.toString() ?? '{}';
+      Map<String, dynamic> payload;
+      try {
+        payload = jsonDecode(payloadString) as Map<String, dynamic>;
+      } catch (e) {
+        payload = {'raw': payloadString};
+      }
+      
+      if (widget.onNotificationTap != null) {
+        // Use custom callback
+        try {
+          widget.onNotificationTap!(payload: payload);
+        } catch (e, stackTrace) {
+          debugPrint('[SwiftFlutterMaterial] Error in onNotificationTap callback: $e');
+          debugPrint('[SwiftFlutterMaterial] Stack trace: $stackTrace');
+        }
+      } else {
+        // Default behavior: try to navigate to '/notification' route
+        // Use post-frame callback to ensure navigator is ready
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _navigateToNotificationRoute(payload);
+        });
+      }
+    });
+  }
+  
+  void _navigateToNotificationRoute(Map<String, dynamic> payload) {
+    try {
+      String? targetRoute;
+      
+      // Use onNotificationLaunch callback if provided (same logic as initial launch)
+      if (widget.onNotificationLaunch != null) {
+        debugPrint('[SwiftFlutterMaterial] Using onNotificationLaunch callback to determine route');
+        debugPrint('[SwiftFlutterMaterial] Payload for routing: $payload');
+        
+        try {
+          // Call callback with isFromNotification=true since this is a notification tap
+          targetRoute = widget.onNotificationLaunch!(
+            isFromNotification: true,
+            payload: payload,
+          );
+          debugPrint('[SwiftFlutterMaterial] Callback returned route: $targetRoute');
+        } catch (e, stackTrace) {
+          debugPrint('[SwiftFlutterMaterial] Error in onNotificationLaunch callback: $e');
+          debugPrint('[SwiftFlutterMaterial] Stack trace: $stackTrace');
+          return; // Don't navigate if callback fails
+        }
+      } else {
+        // Default behavior: try to navigate to '/notification' route
+        final routes = widget.materialApp?.routes ?? widget.getMaterialApp?.routes;
+        final getPages = widget.getMaterialApp?.getPages;
+        
+        bool hasNotificationRoute = false;
+        if (routes != null && routes.containsKey('/notification')) {
+          hasNotificationRoute = true;
+        } else if (getPages != null && getPages.any((page) => page.name == '/notification')) {
+          hasNotificationRoute = true;
+        }
+        
+        if (!hasNotificationRoute) {
+          debugPrint('[SwiftFlutterMaterial] Notification route not found, skipping navigation');
+          return;
+        }
+        
+        targetRoute = '/notification';
+      }
+      
+      // If callback returned null, don't navigate (use default behavior)
+      if (targetRoute == null) {
+        debugPrint('[SwiftFlutterMaterial] Callback returned null, skipping navigation');
+        return;
+      }
+      
+      // Navigate to the determined route
+      if (widget.getMaterialApp != null) {
+        // Use GetX navigation
+        debugPrint('[SwiftFlutterMaterial] Navigating to $targetRoute using GetX');
+        try {
+          Get.toNamed(targetRoute, arguments: payload);
+        } catch (e) {
+          debugPrint('[SwiftFlutterMaterial] GetX navigation error: $e');
+          // Fallback: try using navigator key if GetX fails
+          final navigator = _navigatorKey.currentState;
+          if (navigator != null) {
+            navigator.pushNamed(targetRoute, arguments: payload);
+          }
+        }
+      } else {
+        // Use MaterialApp navigation
+        // Try to get navigator from the MaterialApp's navigatorKey first
+        final materialAppNavigatorKey = widget.materialApp?.navigatorKey ?? _navigatorKey;
+        final navigator = materialAppNavigatorKey.currentState;
+        
+        if (navigator != null) {
+          debugPrint('[SwiftFlutterMaterial] Navigating to $targetRoute using MaterialApp Navigator');
+          navigator.pushNamed(targetRoute, arguments: payload);
+        } else {
+          debugPrint('[SwiftFlutterMaterial] Navigator not available yet, will retry');
+          // Retry after a short delay
+          Future.delayed(const Duration(milliseconds: 100), () {
+            final retryNavigator = materialAppNavigatorKey.currentState;
+            if (retryNavigator != null) {
+              debugPrint('[SwiftFlutterMaterial] Retrying navigation to $targetRoute');
+              retryNavigator.pushNamed(targetRoute!, arguments: payload);
+            } else {
+              debugPrint('[SwiftFlutterMaterial] Navigator still not available after retry');
+            }
+          });
+        }
+      }
+    } catch (e, stackTrace) {
+      debugPrint('[SwiftFlutterMaterial] Error navigating to notification route: $e');
+      debugPrint('[SwiftFlutterMaterial] Stack trace: $stackTrace');
+    }
+  }
+  
+  @override
+  void dispose() {
+    _notificationSubscription?.cancel();
+    super.dispose();
   }
 
   /// Extracts the initial route from MaterialApp or GetMaterialApp
@@ -273,12 +427,14 @@ class _SwiftFlutterMaterialState
         initialRoute: _computedInitialRoute!,
         getMaterialApp: widget.getMaterialApp!,
         notificationPayload: _notificationPayload,
+        navigatorKey: _navigatorKey,
       );
     } else {
     return _NotificationAwareMaterialApp(
       initialRoute: _computedInitialRoute!,
         materialApp: widget.materialApp!,
       notificationPayload: _notificationPayload,
+      navigatorKey: _navigatorKey,
     );
     }
   }
@@ -288,11 +444,13 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
   final String initialRoute;
   final MaterialApp materialApp;
   final Map<String, dynamic> notificationPayload;
+  final GlobalKey<NavigatorState> navigatorKey;
 
   const _NotificationAwareMaterialApp({
     required this.initialRoute,
     required this.materialApp,
     required this.notificationPayload,
+    required this.navigatorKey,
   });
 
   @override
@@ -311,6 +469,7 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
 
     return MaterialApp(
       key: materialApp.key,
+      navigatorKey: materialApp.navigatorKey ?? navigatorKey,
       title: materialApp.title ?? 'Flutter App',
       initialRoute: initialRoute,
       routes: enhancedRoutes,
@@ -354,11 +513,13 @@ class _NotificationAwareGetMaterialApp extends StatelessWidget {
   final String initialRoute;
   final GetMaterialApp getMaterialApp;
   final Map<String, dynamic> notificationPayload;
+  final GlobalKey<NavigatorState> navigatorKey;
 
   const _NotificationAwareGetMaterialApp({
     required this.initialRoute,
     required this.getMaterialApp,
     required this.notificationPayload,
+    required this.navigatorKey,
   });
 
   @override
@@ -407,7 +568,7 @@ class _NotificationAwareGetMaterialApp extends StatelessWidget {
       routingCallback: getMaterialApp.routingCallback,
       onReady: getMaterialApp.onReady,
       onDispose: getMaterialApp.onDispose,
-      navigatorKey: getMaterialApp.navigatorKey,
+      navigatorKey: getMaterialApp.navigatorKey ?? navigatorKey,
       shortcuts: getMaterialApp.shortcuts,
       actions: getMaterialApp.actions,
       useInheritedMediaQuery: getMaterialApp.useInheritedMediaQuery,

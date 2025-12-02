@@ -1,3 +1,13 @@
+## 2.1.0
+
+* 🎯 **Dynamic Notification Routing**: `onNotificationLaunch` callback now works for both initial launch AND notification taps while app is running
+* 🔄 **Real-time Navigation**: Automatically navigates to appropriate screen when notification is tapped while app is open (foreground/background)
+* 📱 **Event Stream Support**: Added `getNotificationStream()` method to listen for notification taps in real-time
+* 🎨 **Enhanced Callback**: `onNotificationTap` callback for custom handling of notification taps while app is running
+* 🚀 **Improved Navigation**: Better navigator handling with retry logic and support for both MaterialApp and GetMaterialApp
+* 📦 **Better Example**: Reorganized example app with multiple screens and dynamic routing based on notification payload
+* Learn more: https://swiftflutter.com/dynamicnotification
+
 ## 2.0.0
 
 * 🎉 **Major API Update**: `SwiftFlutterMaterial` now accepts `MaterialApp` or `GetMaterialApp` instances

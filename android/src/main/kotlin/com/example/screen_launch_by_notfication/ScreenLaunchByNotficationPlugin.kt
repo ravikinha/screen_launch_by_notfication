@@ -6,6 +6,7 @@ import android.content.Intent
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugin.common.MethodChannel.MethodCallHandler
@@ -16,26 +17,50 @@ import org.json.JSONObject
 class ScreenLaunchByNotficationPlugin :
     FlutterPlugin,
     MethodCallHandler,
-    ActivityAware {
+    ActivityAware,
+    EventChannel.StreamHandler {
     // The MethodChannel that will the communication between Flutter and native Android
     private lateinit var channel: MethodChannel
+    private lateinit var eventChannel: EventChannel
+    private var eventSink: EventChannel.EventSink? = null
     private var activity: Activity? = null
     private var context: Context? = null
+    private var isAppInitialized = false
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "launch_channel")
         channel.setMethodCallHandler(this)
+        eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "launch_channel_events")
+        eventChannel.setStreamHandler(this)
         context = flutterPluginBinding.applicationContext
+    }
+    
+    override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+        eventSink = events
+    }
+    
+    override fun onCancel(arguments: Any?) {
+        eventSink = null
+    }
+    
+    private fun sendNotificationEvent(payload: String) {
+        eventSink?.success(mapOf(
+            "isFromNotification" to true,
+            "payload" to payload
+        ))
     }
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
-        checkNotificationIntent(binding.activity.intent)
+        // Check initial intent but don't send event (this is initial launch)
+        checkNotificationIntent(binding.activity.intent, isNewIntent = false)
+        isAppInitialized = true
         
         // Listen for new intents (when app is brought to foreground)
         binding.addOnNewIntentListener { intent ->
             binding.activity.setIntent(intent)
-            checkNotificationIntent(intent)
+            // This is a new intent while app is running, so send event
+            checkNotificationIntent(intent, isNewIntent = true)
             true
         }
     }
@@ -53,7 +78,7 @@ class ScreenLaunchByNotficationPlugin :
         activity = null
     }
 
-    private fun checkNotificationIntent(intent: Intent?) {
+    private fun checkNotificationIntent(intent: Intent?, isNewIntent: Boolean = false) {
         val ctx = context ?: return
         val prefs = ctx.getSharedPreferences("launchStore", Context.MODE_PRIVATE)
 
@@ -119,7 +144,14 @@ class ScreenLaunchByNotficationPlugin :
             
             // Store payload as JSON string
             if (payload.length() > 0) {
-                prefs.edit().putString("notificationPayload", payload.toString()).apply()
+                val payloadString = payload.toString()
+                prefs.edit().putString("notificationPayload", payloadString).apply()
+                
+                // Send event to Flutter ONLY when app is already running (isNewIntent = true)
+                // Don't send event on initial launch (isNewIntent = false)
+                if (isNewIntent && isAppInitialized) {
+                    sendNotificationEvent(payloadString)
+                }
             }
         }
     }
@@ -174,6 +206,7 @@ class ScreenLaunchByNotficationPlugin :
 
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
+        eventChannel.setStreamHandler(null)
         context = null
     }
 }

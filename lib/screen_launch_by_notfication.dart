@@ -1,6 +1,7 @@
 export 'screen_launch_by_notfication_widget.dart';
 
 import 'screen_launch_by_notfication_platform_interface.dart';
+import 'screen_launch_by_notfication_method_channel.dart';
 
 /// A Flutter plugin to detect if the app was launched by tapping a notification
 /// and retrieve the notification payload, allowing you to skip splash screens
@@ -43,5 +44,31 @@ class ScreenLaunchByNotfication {
   /// ```
   Future<bool> storeNotificationPayload(String payload) {
     return ScreenLaunchByNotficationPlatform.instance.storeNotificationPayload(payload);
+  }
+  
+  /// Stream of notification tap events when app is already running.
+  /// 
+  /// Subscribe to this stream to handle navigation when user taps a notification
+  /// while the app is already open (foreground or background).
+  /// 
+  /// Returns a Stream that emits Maps with:
+  /// - `isFromNotification` (bool): Always true for stream events
+  /// - `payload` (String): The notification payload as a JSON string
+  /// 
+  /// Example:
+  /// ```dart
+  /// screenLaunchByNotfication.getNotificationStream().listen((event) {
+  ///   final payload = jsonDecode(event['payload']);
+  ///   // Navigate to notification screen
+  ///   Navigator.pushNamed(context, '/notification', arguments: payload);
+  /// });
+  /// ```
+  Stream<Map<String, dynamic>> getNotificationStream() {
+    final platform = ScreenLaunchByNotficationPlatform.instance;
+    if (platform is MethodChannelScreenLaunchByNotfication) {
+      return platform.getNotificationStream();
+    }
+    // Return empty stream if platform doesn't support events
+    return const Stream.empty();
   }
 }

@@ -32,7 +32,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  screen_launch_by_notfication: ^2.0.0
+  screen_launch_by_notfication: ^2.1.0
   flutter_local_notifications: ^19.5.0  # Recommended for sending notifications
   get: ^4.6.6  # Required only if using GetMaterialApp
 ```
@@ -68,8 +68,8 @@ For iOS, you only need to request notification permissions in your app (if you h
 import UserNotifications
 
 // In your AppDelegate or wherever you request permissions
-UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
-  if granted {
+    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound, .badge]) { granted, error in
+      if granted {
     DispatchQueue.main.async {
       UIApplication.shared.registerForRemoteNotifications()
     }
@@ -105,12 +105,12 @@ class MyApp extends StatelessWidget {
       materialApp: MaterialApp(
         title: 'My App',
         theme: ThemeData(primarySwatch: Colors.blue),
-        initialRoute: '/splash',
-        routes: {
-          '/splash': (_) => SplashScreen(),
-          '/notification': (_) => NotificationScreen(),
-          '/home': (_) => HomeScreen(),
-        },
+      initialRoute: '/splash',
+      routes: {
+        '/splash': (_) => SplashScreen(),
+        '/notification': (_) => NotificationScreen(),
+        '/home': (_) => HomeScreen(),
+      },
       ),
       onNotificationLaunch: ({required isFromNotification, required payload}) {
         if (isFromNotification) {
@@ -347,22 +347,48 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## SwiftFlutterMaterial Widget
 
-Version 2.0.0 introduces a completely redesigned `SwiftFlutterMaterial` widget with a simplified API:
+Version 2.1.0 introduces enhanced notification handling with real-time navigation support:
 
-**New in 2.0.0:**
+**New in 2.1.0:**
+- ✅ **Real-time Navigation**: Automatically navigates when notification is tapped while app is running
+- ✅ **Dynamic Routing**: `onNotificationLaunch` callback works for both initial launch and runtime taps
+- ✅ **Event Stream**: `getNotificationStream()` method for listening to notification events
+- ✅ **Custom Tap Handler**: `onNotificationTap` callback for custom handling of runtime notification taps
+
+**Features (from 2.0.0):**
 - ✅ Accepts `MaterialApp` or `GetMaterialApp` instances
 - ✅ Zero native code setup required
 - ✅ Automatic route management
 - ✅ Full GetX navigation support
 - ✅ Works seamlessly with existing app structure
-
-**Features:**
-- ✅ Automatic notification detection
 - ✅ Custom routing based on conditions via `onNotificationLaunch` callback
 - ✅ All MaterialApp/GetMaterialApp properties are preserved and managed
 - ✅ Loading state while checking notification status
 - ✅ Error handling with fallback to initial route
 - ✅ Self-contained native implementation
+
+**Example with dynamic routing:**
+```dart
+SwiftFlutterMaterial(
+  materialApp: MaterialApp(
+    routes: {
+      '/home': (context) => HomeScreen(),
+      '/chatPage': (context) => ChatScreen(),
+      '/notificationScreen': (context) => NotificationScreen(),
+    },
+  ),
+  onNotificationLaunch: ({required isFromNotification, required payload}) {
+    // Works for both initial launch AND runtime notification taps
+    if (payload.containsKey('chatnotification')) {
+      return '/chatPage';  // Route to chat screen
+    }
+    if (isFromNotification) {
+      return '/notificationScreen';  // Route to notification screen
+    }
+    return null;  // Use default initialRoute
+  },
+)
+```
 
 Learn more about `SwiftFlutterMaterial` at [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
 
