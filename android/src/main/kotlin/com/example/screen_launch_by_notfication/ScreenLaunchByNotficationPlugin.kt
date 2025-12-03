@@ -3,6 +3,8 @@ package com.example.screen_launch_by_notfication
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.embedding.engine.plugins.activity.ActivityAware
 import io.flutter.embedding.engine.plugins.activity.ActivityPluginBinding
@@ -26,12 +28,33 @@ class ScreenLaunchByNotficationPlugin :
     private var activity: Activity? = null
     private var context: Context? = null
     private var isAppInitialized = false
+    
+    // Deep link channels
+    private lateinit var deepLinkChannel: MethodChannel
+    private lateinit var deepLinkEventChannel: EventChannel
+    private var deepLinkEventSink: EventChannel.EventSink? = null
+    private var initialDeepLink: Uri? = null
 
     override fun onAttachedToEngine(flutterPluginBinding: FlutterPlugin.FlutterPluginBinding) {
         channel = MethodChannel(flutterPluginBinding.binaryMessenger, "launch_channel")
         channel.setMethodCallHandler(this)
         eventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "launch_channel_events")
         eventChannel.setStreamHandler(this)
+        
+        // Deep link channels
+        deepLinkChannel = MethodChannel(flutterPluginBinding.binaryMessenger, "screen_launch_by_notfication/deep_link")
+        deepLinkChannel.setMethodCallHandler(this)
+        deepLinkEventChannel = EventChannel(flutterPluginBinding.binaryMessenger, "screen_launch_by_notfication/deep_link_events")
+        deepLinkEventChannel.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                deepLinkEventSink = events
+            }
+            
+            override fun onCancel(arguments: Any?) {
+                deepLinkEventSink = null
+            }
+        })
+        
         context = flutterPluginBinding.applicationContext
     }
     
@@ -52,15 +75,28 @@ class ScreenLaunchByNotficationPlugin :
 
     override fun onAttachedToActivity(binding: ActivityPluginBinding) {
         activity = binding.activity
-        // Check initial intent but don't send event (this is initial launch)
-        checkNotificationIntent(binding.activity.intent, isNewIntent = false)
+        val intent = binding.activity.intent
+        
+        // Check initial deep link (priority over notifications)
+        checkDeepLinkIntent(intent, isNewIntent = false)
+        
+        // Check initial notification intent but don't send event (this is initial launch)
+        checkNotificationIntent(intent, isNewIntent = false)
+        
         isAppInitialized = true
         
         // Listen for new intents (when app is brought to foreground)
         binding.addOnNewIntentListener { intent ->
             binding.activity.setIntent(intent)
-            // This is a new intent while app is running, so send event
-            checkNotificationIntent(intent, isNewIntent = true)
+            
+            // Check deep link first (priority)
+            val hasDeepLink = checkDeepLinkIntent(intent, isNewIntent = true)
+            
+            // Only check notification if no deep link was found
+            if (!hasDeepLink) {
+                checkNotificationIntent(intent, isNewIntent = true)
+            }
+            
             true
         }
     }
@@ -71,6 +107,7 @@ class ScreenLaunchByNotficationPlugin :
 
     override fun onReattachedToActivityForConfigChanges(binding: ActivityPluginBinding) {
         activity = binding.activity
+        checkDeepLinkIntent(binding.activity.intent, isNewIntent = false)
         checkNotificationIntent(binding.activity.intent)
     }
 
@@ -200,6 +237,11 @@ class ScreenLaunchByNotficationPlugin :
                     result.error("ERROR", "Failed to store payload: ${e.message}", null)
                 }
             }
+            "getInitialLink" -> {
+                val link = initialDeepLink?.toString()
+                result.success(link)
+                initialDeepLink = null // Clear after reading
+            }
             else -> result.notImplemented()
         }
     }
@@ -207,6 +249,34 @@ class ScreenLaunchByNotficationPlugin :
     override fun onDetachedFromEngine(binding: FlutterPlugin.FlutterPluginBinding) {
         channel.setMethodCallHandler(null)
         eventChannel.setStreamHandler(null)
+        deepLinkChannel.setMethodCallHandler(null)
+        deepLinkEventChannel.setStreamHandler(null)
         context = null
+    }
+    
+    /**
+     * Checks for deep link in the intent.
+     * @param intent The intent to check
+     * @param isNewIntent True if this is a new intent while app is running
+     * @return True if a deep link was found, false otherwise
+     */
+    private fun checkDeepLinkIntent(intent: Intent?, isNewIntent: Boolean): Boolean {
+        val uri = intent?.data
+        if (uri != null && (Intent.ACTION_VIEW == intent.action)) {
+            val deepLinkUrl = uri.toString()
+            Log.d("ScreenLaunchByNotfication", "Deep link received: $deepLinkUrl, isNewIntent: $isNewIntent")
+            
+            if (!isNewIntent) {
+                // Store initial deep link for app launch
+                initialDeepLink = uri
+            } else {
+                // App is already running, send event to Flutter
+                if (isAppInitialized && deepLinkEventSink != null) {
+                    deepLinkEventSink?.success(deepLinkUrl)
+                }
+            }
+            return true
+        }
+        return false
     }
 }

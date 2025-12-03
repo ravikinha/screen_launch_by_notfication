@@ -7,10 +7,12 @@ A Flutter plugin that detects if your app was launched by tapping a notification
 ## Features
 
 ✅ **Detect notification launches** - Know when your app was opened from a notification  
+✅ **Deep link support** - Handle custom URL schemes and universal links automatically  
 ✅ **Retrieve notification payload** - Get all notification data including custom payload  
-✅ **Skip splash screens** - Route directly to notification screens when opened from notification  
-✅ **Works in all app states** - Detects notification taps when app is killed, in background, or foreground  
+✅ **Skip splash screens** - Route directly to notification/deep link screens  
+✅ **Works in all app states** - Detects notification taps and deep links when app is killed, in background, or foreground  
 ✅ **Cross-platform** - Works on both Android and iOS  
+✅ **Zero native setup** - All native code handled automatically, just configure AndroidManifest.xml and Info.plist  
 ✅ **Compatible with flutter_local_notifications** - Works seamlessly with the popular notification plugin  
 
 ## Overview
@@ -32,7 +34,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  screen_launch_by_notfication: ^2.2.0
+  screen_launch_by_notfication: ^2.3.0
   flutter_local_notifications: ^19.5.0  # Recommended for sending notifications
   get: ^4.6.6  # Required only if using GetMaterialApp
 ```
@@ -58,6 +60,29 @@ android {
 }
 ```
 
+#### Deep Link Configuration (Optional)
+
+To enable deep linking, add intent filters to your `android/app/src/main/AndroidManifest.xml`:
+
+```xml
+<activity
+    android:name=".MainActivity"
+    android:exported="true"
+    android:launchMode="singleTop">
+    <!-- ... other intent filters ... -->
+    
+    <!-- Deep link intent filter -->
+    <intent-filter>
+        <action android:name="android.intent.action.VIEW" />
+        <category android:name="android.intent.category.DEFAULT" />
+        <category android:name="android.intent.category.BROWSABLE" />
+        <data android:scheme="yourapp" />
+    </intent-filter>
+</activity>
+```
+
+Replace `yourapp` with your custom scheme (e.g., `myapp`, `notificationapp`).
+
 ### iOS Setup
 
 **No native code setup required!** 🎉 The plugin handles everything automatically.
@@ -77,7 +102,27 @@ import UserNotifications
 }
 ```
 
-**Note:** The plugin automatically handles all notification detection and payload storage. No need to modify `AppDelegate.swift` or `MainActivity.kt`!
+#### Deep Link Configuration (Optional)
+
+To enable deep linking, add URL scheme to your `ios/Runner/Info.plist`:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+    <dict>
+        <key>CFBundleTypeRole</key>
+        <string>Editor</string>
+        <key>CFBundleURLSchemes</key>
+        <array>
+            <string>yourapp</string>
+        </array>
+    </dict>
+</array>
+```
+
+Replace `yourapp` with your custom scheme (e.g., `myapp`, `notificationapp`).
+
+**Note:** The plugin automatically handles all notification detection, payload storage, and deep link handling. No need to modify `AppDelegate.swift` or `MainActivity.kt`!
 
 ## Usage
 
@@ -121,6 +166,16 @@ class MyApp extends StatelessWidget {
         }
         return null; // Use MaterialApp's initialRoute
       },
+      onDeepLink: ({required url, required route, required queryParams}) {
+        // Handle deep links (e.g., myapp://product/123)
+        if (route == '/product') {
+          return SwiftRouting(
+            route: '/product',
+            payload: {'productId': queryParams['id']},
+          );
+        }
+        return null; // Skip navigation for unknown routes
+      },
     );
   }
 }
@@ -163,6 +218,16 @@ class MyApp extends StatelessWidget {
         }
         return null; // Use GetMaterialApp's initialRoute
       },
+      onDeepLink: ({required url, required route, required queryParams}) {
+        // Handle deep links (e.g., myapp://product/123)
+        if (route == '/product') {
+          return SwiftRouting(
+            route: '/product',
+            payload: {'productId': queryParams['id']},
+          );
+        }
+        return null; // Skip navigation for unknown routes
+      },
     );
   }
 }
@@ -171,8 +236,58 @@ class MyApp extends StatelessWidget {
 **Key Features:**
 - ✅ Pass your existing `MaterialApp` or `GetMaterialApp` - no need to duplicate properties
 - ✅ All routing properties (routes, getPages, initialRoute, etc.) are automatically managed
-- ✅ Zero native code setup required
+- ✅ Zero native code setup required (just configure AndroidManifest.xml and Info.plist for deep links)
 - ✅ Works with your existing app structure
+- ✅ Automatic deep link handling with `onDeepLink` callback
+- ✅ Deep links take priority over notifications when both are present
+
+### Deep Link Handling
+
+The plugin automatically handles deep links in both cold state (app closed) and warm state (app running):
+
+```dart
+SwiftFlutterMaterial(
+  materialApp: MaterialApp(
+    routes: {
+      '/home': (context) => HomeScreen(),
+      '/product': (context) => ProductScreen(),
+    },
+  ),
+  onDeepLink: ({required url, required route, required queryParams}) {
+    // Handle product deep links: myapp://product/123 or myapp://product?id=123
+    if (route == '/product' || route.startsWith('/product/')) {
+      final productId = route.split('/').last;
+      return SwiftRouting(
+        route: '/product',
+        payload: {
+          'productId': productId,
+          'source': 'deeplink',
+          ...queryParams, // Include all query params
+        },
+      );
+    }
+    return null; // Skip navigation for unknown routes
+  },
+)
+```
+
+**Deep Link Formats Supported:**
+- Custom schemes: `myapp://product/123`, `myapp://product?id=123`
+- Universal links: `https://yourapp.com/product/123`
+- Path-based: `/product/123` → `/product` (with ID in payload)
+- Query-based: `/product?id=123` → `/product` (with ID in queryParams)
+
+**Testing Deep Links:**
+
+**Android:**
+```bash
+adb shell am start -a android.intent.action.VIEW -d "myapp://product/123"
+```
+
+**iOS (Simulator):**
+```bash
+xcrun simctl openurl booted "myapp://product/123"
+```
 
 Learn more about `SwiftFlutterMaterial` at [swiftflutter.com/dynamicnotification](https://swiftflutter.com/dynamicnotification)
 
@@ -323,6 +438,41 @@ final payload = jsonEncode({'title': 'Test', 'body': 'Message'});
 await screenLaunchByNotfication.storeNotificationPayload(payload);
 ```
 
+### `onDeepLink` Callback
+
+Handles deep link routing when app is launched from a deep link or receives a deep link while running.
+
+**Parameters:**
+- `url` (String): The full deep link URL (e.g., `myapp://product/123`)
+- `route` (String): The parsed route path (e.g., `/product/123` or `/product`)
+- `queryParams` (Map<String, dynamic>): Query parameters from the URL
+
+**Returns:** `SwiftRouting?` - Return a `SwiftRouting` object to navigate, or `null` to skip navigation
+
+**Example:**
+```dart
+onDeepLink: ({required url, required route, required queryParams}) {
+  // Handle path-based routes: myapp://product/123
+  if (route.startsWith('/product/')) {
+    final productId = route.split('/').last;
+    return SwiftRouting(
+      route: '/product',
+      payload: {'productId': productId},
+    );
+  }
+  
+  // Handle query-based routes: myapp://product?id=123
+  if (route == '/product' && queryParams.containsKey('id')) {
+    return SwiftRouting(
+      route: '/product',
+      payload: {'productId': queryParams['id']},
+    );
+  }
+  
+  return null; // Skip navigation for unknown routes
+}
+```
+
 ## How It Works
 
 1. **User taps notification** → Native code captures the launch event
@@ -353,13 +503,18 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## SwiftFlutterMaterial Widget
 
-Version 2.1.0 introduces enhanced notification handling with real-time navigation support:
+Version 2.3.0 introduces deep link support and enhanced notification handling:
 
-**New in 2.1.0:**
+**New in 2.3.0:**
+- 🔗 **Deep Link Support**: Full support for custom URL schemes and universal links
+- 🎯 **Automatic Deep Link Handling**: Deep links work in both cold and warm states
+- 📦 **Zero Native Setup**: All deep link handling done in plugin - just configure manifests
+- ✨ **onDeepLink Callback**: Custom routing logic for deep links
+
+**Features from 2.1.0:**
 - ✅ **Real-time Navigation**: Automatically navigates when notification is tapped while app is running
 - ✅ **Dynamic Routing**: `onNotificationLaunch` callback works for both initial launch and runtime taps
 - ✅ **Event Stream**: `getNotificationStream()` method for listening to notification events
-- ✅ **Custom Tap Handler**: `onNotificationTap` callback for custom handling of runtime notification taps
 
 **Features (from 2.0.0):**
 - ✅ Accepts `MaterialApp` or `GetMaterialApp` instances

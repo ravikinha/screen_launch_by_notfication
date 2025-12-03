@@ -1,4 +1,7 @@
 export 'screen_launch_by_notfication_widget.dart';
+export 'deep_link_parser.dart';
+export 'deep_link_handler.dart';
+export 'routing_types.dart';
 
 import 'screen_launch_by_notfication_platform_interface.dart';
 import 'screen_launch_by_notfication_method_channel.dart';

@@ -4,6 +4,7 @@ import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/notification_screen.dart';
 import 'screens/chat_screen.dart';
+import 'screens/product_screen.dart';
 import 'services/notification_service.dart';
 
 void main() async {
@@ -37,6 +38,13 @@ class MyApp extends StatelessWidget {
               );
             }
             return const ChatScreen();
+          },
+          '/product': (context) {
+            // Get route arguments from deep link
+            final args = ModalRoute.of(context)?.settings.arguments;
+            return ProductScreen(
+              payload: args is Map<String, dynamic> ? args : null,
+            );
           },
           '/home': (context) => const HomeScreen(),
         },
@@ -83,6 +91,57 @@ class MyApp extends StatelessWidget {
 
         // Return null to use initialRoute from MaterialApp
         print('Using default initialRoute');
+        return null;
+      },
+      // Deep link handling
+      onDeepLink: ({required url, required route, required queryParams}) {
+        print('🔗 Deep link received: $url');
+        print('📍 Route: $route');
+        print('📦 Query params: $queryParams');
+        
+        // Handle product deep links: notificationapp://product?id=123
+        if (route == '/product') {
+          final productId = queryParams['id'] ?? queryParams['productId'];
+          if (productId != null) {
+            print('✅ Routing to product screen with ID: $productId');
+            return SwiftRouting(
+              route: '/product',
+              payload: {
+                'productId': productId,
+                'source': 'deeplink',
+                ...queryParams, // Include all query params
+              },
+            );
+          }
+        }
+        
+        // Handle path-based product routes: notificationapp://product/123
+        if (route.startsWith('/product/')) {
+          final productId = route.split('/').last;
+          print('✅ Routing to product screen with ID: $productId (from path)');
+          return SwiftRouting(
+            route: '/product',
+            payload: {
+              'productId': productId,
+              'source': 'deeplink',
+            },
+          );
+        }
+        
+        // Handle profile deep links: notificationapp://profile?userId=456
+        if (route == '/profile') {
+          print('✅ Routing to profile screen');
+          return SwiftRouting(
+            route: '/notificationScreen',
+            payload: {
+              'type': 'profile',
+              ...queryParams,
+            },
+          );
+        }
+        
+        // Return null to skip navigation for unknown routes
+        print('⚠️ Unknown deep link route, skipping navigation');
         return null;
       },
     );

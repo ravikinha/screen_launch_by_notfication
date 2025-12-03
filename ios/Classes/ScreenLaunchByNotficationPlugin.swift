@@ -3,10 +3,12 @@ import UIKit
 import UserNotifications
 import ObjectiveC
 
-// Store original implementation
+// Store original implementations
 private var originalIMP: IMP?
+private var originalOpenIMP: IMP?
+private var originalContinueIMP: IMP?
 
-// Extension to FlutterAppDelegate to automatically handle launch notifications
+// Extension to FlutterAppDelegate to automatically handle launch notifications and deep links
 extension FlutterAppDelegate {
   @objc public func screenLaunch_application(
     _ application: UIApplication,
@@ -20,6 +22,11 @@ extension FlutterAppDelegate {
         UserDefaults.standard.set(jsonString, forKey: "notificationPayload")
       }
       UserDefaults.standard.synchronize()
+    }
+    
+    // Handle deep link from launch options (if app was opened via URL)
+    if let url = launchOptions?[.url] as? URL {
+      ScreenLaunchByNotficationPlugin.sharedInstance?.handleDeepLink(url)
     }
     
     // Call original implementation using stored IMP
@@ -38,24 +45,38 @@ extension FlutterAppDelegate {
 public class ScreenLaunchByNotficationPlugin: NSObject, FlutterPlugin, UNUserNotificationCenterDelegate, FlutterStreamHandler {
   private var channel: FlutterMethodChannel?
   private var eventSink: FlutterEventSink?
-  private static var sharedInstance: ScreenLaunchByNotficationPlugin?
+  private var deepLinkChannel: FlutterMethodChannel?
+  private var deepLinkEventChannel: FlutterEventChannel?
+  var deepLinkEventSink: FlutterEventSink? // Changed to internal so DeepLinkStreamHandler can access it
+  private var initialDeepLink: String?
+  public static var sharedInstance: ScreenLaunchByNotficationPlugin?
   private static var hasSwizzled = false
+  private static var hasSwizzledDeepLink = false
   private static var isAppInitialized = false
   
   public static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(name: "launch_channel", binaryMessenger: registrar.messenger())
     let eventChannel = FlutterEventChannel(name: "launch_channel_events", binaryMessenger: registrar.messenger())
+    
+    // Deep link channels
+    let deepLinkChannel = FlutterMethodChannel(name: "screen_launch_by_notfication/deep_link", binaryMessenger: registrar.messenger())
+    let deepLinkEventChannel = FlutterEventChannel(name: "screen_launch_by_notfication/deep_link_events", binaryMessenger: registrar.messenger())
+    
     let instance = ScreenLaunchByNotficationPlugin()
     instance.channel = channel
+    instance.deepLinkChannel = deepLinkChannel
     sharedInstance = instance
     registrar.addMethodCallDelegate(instance, channel: channel)
+    registrar.addMethodCallDelegate(instance, channel: deepLinkChannel)
     eventChannel.setStreamHandler(instance)
+    deepLinkEventChannel.setStreamHandler(DeepLinkStreamHandler(instance: instance))
     
     // Set up notification delegate
     UNUserNotificationCenter.current().delegate = instance
     
-    // Swizzle AppDelegate to automatically handle launch notifications
+    // Swizzle AppDelegate to automatically handle launch notifications and deep links
     swizzleAppDelegate()
+    swizzleDeepLinkHandlers()
     
     // Mark app as initialized after a short delay to ensure didFinishLaunchingWithOptions completes
     // This prevents sending events during initial launch
@@ -134,8 +155,27 @@ public class ScreenLaunchByNotficationPlugin: NSObject, FlutterPlugin, UNUserNot
       } else {
         result(FlutterMethodNotImplemented)
       }
+    case "getInitialLink":
+      let link = initialDeepLink
+      result(link)
+      initialDeepLink = nil // Clear after reading
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+  
+  // Handle deep link
+  public func handleDeepLink(_ url: URL) {
+    let urlString = url.absoluteString
+    
+    if ScreenLaunchByNotficationPlugin.isAppInitialized {
+      // App is already running, send event
+      if let sink = deepLinkEventSink {
+        sink(urlString)
+      }
+    } else {
+      // App is launching, store for initial read
+      initialDeepLink = urlString
     }
   }
   
@@ -218,5 +258,99 @@ public class ScreenLaunchByNotficationPlugin: NSObject, FlutterPlugin, UNUserNot
     } else {
       completionHandler([.alert, .sound, .badge])
     }
+  }
+  
+  // Swizzle AppDelegate methods to handle deep links
+  private static func swizzleDeepLinkHandlers() {
+    guard !hasSwizzledDeepLink else { return }
+    hasSwizzledDeepLink = true
+    
+    guard let appDelegateClass = NSClassFromString("FlutterAppDelegate") as? AnyClass else {
+      return
+    }
+    
+    // Swizzle application(_:open:options:)
+    let originalOpenSelector = #selector(UIApplicationDelegate.application(_:open:options:))
+    let swizzledOpenSelector = #selector(FlutterAppDelegate.screenLaunch_application(_:open:options:))
+    
+    if let originalOpenMethod = class_getInstanceMethod(appDelegateClass, originalOpenSelector),
+       let swizzledOpenMethod = class_getInstanceMethod(appDelegateClass, swizzledOpenSelector) {
+      originalOpenIMP = method_getImplementation(originalOpenMethod)
+      method_exchangeImplementations(originalOpenMethod, swizzledOpenMethod)
+    }
+    
+    // Swizzle application(_:continue:restorationHandler:)
+    let originalContinueSelector = #selector(UIApplicationDelegate.application(_:continue:restorationHandler:))
+    let swizzledContinueSelector = #selector(FlutterAppDelegate.screenLaunch_application(_:continue:restorationHandler:))
+    
+    if let originalContinueMethod = class_getInstanceMethod(appDelegateClass, originalContinueSelector),
+       let swizzledContinueMethod = class_getInstanceMethod(appDelegateClass, swizzledContinueSelector) {
+      originalContinueIMP = method_getImplementation(originalContinueMethod)
+      method_exchangeImplementations(originalContinueMethod, swizzledContinueMethod)
+    }
+  }
+}
+
+// Deep link stream handler
+class DeepLinkStreamHandler: NSObject, FlutterStreamHandler {
+  weak var instance: ScreenLaunchByNotficationPlugin?
+  
+  init(instance: ScreenLaunchByNotficationPlugin) {
+    self.instance = instance
+  }
+  
+  func onListen(withArguments arguments: Any?, eventSink events: @escaping FlutterEventSink) -> FlutterError? {
+    instance?.deepLinkEventSink = events
+    return nil
+  }
+  
+  func onCancel(withArguments arguments: Any?) -> FlutterError? {
+    instance?.deepLinkEventSink = nil
+    return nil
+  }
+}
+
+// Extension to FlutterAppDelegate for deep link handling
+extension FlutterAppDelegate {
+  @objc public func screenLaunch_application(
+    _ app: UIApplication,
+    open url: URL,
+    options: [UIApplication.OpenURLOptionsKey : Any] = [:]
+  ) -> Bool {
+    // Handle deep link
+    ScreenLaunchByNotficationPlugin.sharedInstance?.handleDeepLink(url)
+    
+    // Call original implementation using stored IMP
+    if let originalIMP = originalOpenIMP {
+      typealias OriginalFunction = @convention(c) (AnyObject, Selector, UIApplication, URL, [UIApplication.OpenURLOptionsKey : Any]) -> Bool
+      let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
+      let originalSelector = #selector(UIApplicationDelegate.application(_:open:options:))
+      return originalFunction(self, originalSelector, app, url, options)
+    }
+    
+    return false
+  }
+  
+  @objc public func screenLaunch_application(
+    _ application: UIApplication,
+    continue userActivity: NSUserActivity,
+    restorationHandler: @escaping ([UIUserActivityRestoring]?) -> Void
+  ) -> Bool {
+    // Handle Universal Links
+    if userActivity.activityType == NSUserActivityTypeBrowsingWeb,
+       let url = userActivity.webpageURL {
+      ScreenLaunchByNotficationPlugin.sharedInstance?.handleDeepLink(url)
+      return true
+    }
+    
+    // Call original implementation using stored IMP
+    if let originalIMP = originalContinueIMP {
+      typealias OriginalFunction = @convention(c) (AnyObject, Selector, UIApplication, NSUserActivity, @escaping ([UIUserActivityRestoring]?) -> Void) -> Bool
+      let originalFunction = unsafeBitCast(originalIMP, to: OriginalFunction.self)
+      let originalSelector = #selector(UIApplicationDelegate.application(_:continue:restorationHandler:))
+      return originalFunction(self, originalSelector, application, userActivity, restorationHandler)
+    }
+    
+    return false
   }
 }

@@ -209,6 +209,73 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                const Divider(),
+                const SizedBox(height: 20),
+                const Text(
+                  'Test Deep Links',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.purple,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                const Text(
+                  'Use these commands to test deep links:',
+                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                ),
+                const SizedBox(height: 20),
+                // Deep Link Testing Info
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.purple.withOpacity(0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Android Commands:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCommandText('adb shell am start -a android.intent.action.VIEW -d "notificationapp://product/123"'),
+                      const SizedBox(height: 4),
+                      _buildCommandText('adb shell am start -a android.intent.action.VIEW -d "notificationapp://product?id=456"'),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'iOS Commands:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCommandText('xcrun simctl openurl booted "notificationapp://product/123"'),
+                      const SizedBox(height: 4),
+                      _buildCommandText('xcrun simctl openurl booted "notificationapp://product?id=456"'),
+                      const SizedBox(height: 12),
+                      const Text(
+                        'Or test in Safari:',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.purple,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      _buildCommandText('Type: notificationapp://product/123'),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 20),
                   child: Text(
@@ -221,6 +288,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+  
+  Widget _buildCommandText(String command) {
+    return SelectableText(
+      command,
+      style: const TextStyle(
+        fontSize: 11,
+        fontFamily: 'monospace',
+        color: Colors.black87,
       ),
     );
   }

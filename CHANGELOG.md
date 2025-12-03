@@ -1,3 +1,15 @@
+## 2.3.0
+
+* 🔗 **Deep Link Support**: Full support for custom URL schemes and universal links
+* 🎯 **Automatic Deep Link Handling**: Deep links automatically handled in both cold and warm states
+* 📦 **Zero Native Code**: All deep link handling done in plugin - just configure AndroidManifest.xml and Info.plist
+* ✨ **onDeepLink Callback**: New callback for custom deep link routing logic
+* 🚀 **Deep Link Parser**: Automatic URL parsing with route extraction and query parameter handling
+* 🔧 **Improved Route Handling**: Better route validation and fallback mechanisms
+* 📝 **Enhanced Documentation**: Comprehensive deep linking examples and setup guides
+* 🐛 **Bug Fixes**: Fixed route parsing for custom schemes, improved cold state handling
+* Learn more: https://swiftflutter.com/dynamicnotification
+
 ## 2.2.0
 
 * 🎯 **SwiftRouting Class**: New `SwiftRouting` class for type-safe routing with route and payload
