@@ -129,8 +129,6 @@ class ScreenLaunchByNotficationPlugin :
         val hasPayload = intent?.extras?.containsKey("payload") == true
 
         if (isFromFlutterNotification || isFromCustomNotification || hasPayload) {
-            prefs.edit().putBoolean("openFromNotification", true).apply()
-
             // Extract notification payload
             val payload = JSONObject()
             
@@ -182,12 +180,19 @@ class ScreenLaunchByNotficationPlugin :
             // Store payload as JSON string
             if (payload.length() > 0) {
                 val payloadString = payload.toString()
-                prefs.edit().putString("notificationPayload", payloadString).apply()
                 
-                // Send event to Flutter ONLY when app is already running (isNewIntent = true)
-                // Don't send event on initial launch (isNewIntent = false)
+                // CRITICAL FIX: Only store in persistent storage for initial launch
+                // When app is already running (isNewIntent = true), just send event without storing
+                // This prevents stale notification state from persisting if app is closed
                 if (isNewIntent && isAppInitialized) {
+                    // App is running - send event immediately without storing persistently
                     sendNotificationEvent(payloadString)
+                } else {
+                    // Initial launch - store in persistent storage for isFromNotification() to read
+                    prefs.edit()
+                        .putBoolean("openFromNotification", true)
+                        .putString("notificationPayload", payloadString)
+                        .apply()
                 }
             }
         }

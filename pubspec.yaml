@@ -1,6 +1,6 @@
 name: screen_launch_by_notfication
 description: A Flutter plugin to detect if the app was launched by tapping a notification or deep link, retrieve notification payload, and enable automatic routing. Supports both notification launches and custom deep links with zero native code setup.
-version: 2.3.0
+version: 2.3.1
 homepage: https://swiftflutter.com/dynamicnotification
 repository: https://github.com/ravikinha/screen_launch_by_notfication
 issue_tracker: https://github.com/ravikinha/screen_launch_by_notfication/issues

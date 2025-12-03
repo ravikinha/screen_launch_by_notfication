@@ -1,3 +1,12 @@
+## 2.3.1
+
+* 🐛 **Critical Bug Fix**: Fixed notification state persistence issue when app is closed after tapping notification
+* 🔧 **Android Fix**: Notification state no longer persists in SharedPreferences when notification is tapped while app is running
+* 🔧 **iOS Fix**: Notification state no longer persists in UserDefaults when notification is tapped while app is running
+* ✅ **Improved Behavior**: App restart after closing app no longer incorrectly navigates to notification screen
+* 📝 **Technical Details**: Notification state is now only stored persistently for initial app launches, not when app is already running
+* Learn more: https://swiftflutter.com/dynamicnotification
+
 ## 2.3.0
 
 * 🔗 **Deep Link Support**: Full support for custom URL schemes and universal links

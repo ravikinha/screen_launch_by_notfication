@@ -185,8 +185,6 @@ public class ScreenLaunchByNotficationPlugin: NSObject, FlutterPlugin, UNUserNot
     didReceive response: UNNotificationResponse,
     withCompletionHandler completionHandler: @escaping () -> Void
   ) {
-    UserDefaults.standard.set(true, forKey: "openFromNotification")
-    
     // Extract notification payload from flutter_local_notifications
     // The payload is stored in userInfo["payload"] as a string
     var payloadString: String?
@@ -213,18 +211,23 @@ public class ScreenLaunchByNotficationPlugin: NSObject, FlutterPlugin, UNUserNot
       }
     }
     
-    UserDefaults.standard.set(finalPayload, forKey: "notificationPayload")
-    UserDefaults.standard.synchronize()
-    
-    // Send event to Flutter ONLY when app is already running (not initial launch)
-    // Check both the initialization flag and application state
+    // Check if app is already running (not initial launch)
     let appState = UIApplication.shared.applicationState
     let isAppRunning = ScreenLaunchByNotficationPlugin.isAppInitialized || 
                        appState == .active || 
                        appState == .inactive
     
+    // CRITICAL FIX: Only store in persistent storage for initial launch
+    // When app is already running, just send event without storing
+    // This prevents stale notification state from persisting if app is closed
     if isAppRunning {
+      // App is running - send event immediately without storing persistently
       sendNotificationEvent(payload: finalPayload)
+    } else {
+      // Initial launch - store in persistent storage for isFromNotification() to read
+      UserDefaults.standard.set(true, forKey: "openFromNotification")
+      UserDefaults.standard.set(finalPayload, forKey: "notificationPayload")
+      UserDefaults.standard.synchronize()
     }
     
     completionHandler()
@@ -236,21 +239,9 @@ public class ScreenLaunchByNotficationPlugin: NSObject, FlutterPlugin, UNUserNot
     willPresent notification: UNNotification,
     withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
   ) {
-    // App is in foreground, you can still set the flag if needed
-    UserDefaults.standard.set(true, forKey: "openFromNotification")
-    
-    // Extract notification payload from flutter_local_notifications
-    if let payload = notification.request.content.userInfo["payload"] as? String {
-      UserDefaults.standard.set(payload, forKey: "notificationPayload")
-    } else {
-      let userInfo = notification.request.content.userInfo
-      if let jsonData = try? JSONSerialization.data(withJSONObject: userInfo),
-         let jsonString = String(data: jsonData, encoding: .utf8) {
-        UserDefaults.standard.set(jsonString, forKey: "notificationPayload")
-      }
-    }
-    
-    UserDefaults.standard.synchronize()
+    // App is in foreground - notification is received but not tapped yet
+    // Don't store state here as user hasn't tapped the notification
+    // State will only be stored when user taps (in didReceive method)
     
     // Use .alert for iOS 13 compatibility, .banner for iOS 14+
     if #available(iOS 14.0, *) {
