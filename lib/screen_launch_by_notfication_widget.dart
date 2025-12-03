@@ -3,9 +3,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:screen_launch_by_notfication/screen_launch_by_notfication.dart';
-import 'deep_link_handler.dart' show DeepLinkHandler, DeepLinkCallback;
-import 'deep_link_parser.dart';
-import 'routing_types.dart';
 
 /// A callback function that determines the route and payload based on notification launch status.
 /// 
@@ -667,11 +664,11 @@ class _SwiftFlutterMaterialState
             debugPrint('[SwiftFlutterMaterial] Available getPages: ${getPages?.map((p) => p.name).toList() ?? []}');
             
             // Try callback one more time to convert route (e.g., /product/123 -> /product)
-            if (widget.onDeepLink != null && initialDeepLink != null) {
+            if (widget.onDeepLink != null) {
               try {
-                final parsed = DeepLinkParser.parse(initialDeepLink!);
+                final parsed = DeepLinkParser.parse(initialDeepLink);
                 final callbackRouting = widget.onDeepLink!(
-                  url: initialDeepLink!,
+                  url: initialDeepLink,
                   route: parsed.route,
                   queryParams: parsed.queryParams,
                 );
@@ -764,8 +761,8 @@ class _SwiftFlutterMaterialState
 
     // Final safety check: ALWAYS sanitize the route before using it
     // BUT: Don't sanitize if route is already valid and doesn't contain '://'
-    String? safeRoute = route;
-    if (safeRoute != null && safeRoute.contains('://')) {
+    String safeRoute = route;
+    if (safeRoute.contains('://')) {
       // Only sanitize if route is a URL
       safeRoute = _sanitizeRoute(safeRoute, originalUrl: initialDeepLink, queryParams: payload);
       // If sanitization returned '/', it means the route was invalid, use initialRoute
@@ -775,7 +772,7 @@ class _SwiftFlutterMaterialState
     }
     // If route doesn't contain '://', use it as-is (it's already valid)
     
-    final finalRoute = safeRoute ?? initialRoute;
+    final finalRoute = safeRoute;
     
     // One more check: if finalRoute is a URL, sanitize it
     String finalSafeRoute = finalRoute;
@@ -957,10 +954,7 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
         // First, try to find the route in enhancedRoutes (try both normalized and original)
         var builder = enhancedRoutes[normalizedRoute];
         if (builder == null && normalizedRoute != initialRouteName && normalizedRoute != routeToUse) {
-          builder = enhancedRoutes[initialRouteName];
-          if (builder == null) {
-            builder = enhancedRoutes[routeToUse];
-          }
+          builder = enhancedRoutes[initialRouteName] ?? enhancedRoutes[routeToUse];
         }
         if (builder != null) {
           debugPrint('[SwiftFlutterMaterial] ✅ Found route builder for: $normalizedRoute');
@@ -1068,8 +1062,6 @@ class _NotificationAwareGetMaterialApp extends StatelessWidget {
     // GetMaterialApp can use: routes (MaterialApp), getPages (GetX), home, or onGenerateRoute
     final hasGetPages = enhancedGetPages.isNotEmpty;
     final hasOriginalRoutes = getMaterialApp.routes != null && getMaterialApp.routes!.isNotEmpty;
-    final hasOriginalHome = getMaterialApp.home != null;
-    final hasOriginalInitialRoute = getMaterialApp.initialRoute != null;
     
     // Determine which route configuration to use
     // Priority: getPages > routes > home
@@ -1118,8 +1110,8 @@ class _NotificationAwareGetMaterialApp extends StatelessWidget {
 
     return GetMaterialApp(
       key: getMaterialApp.key,
-      title: getMaterialApp.title ?? 'Flutter App',
-      initialRoute: useInitialRoute ? validatedInitialRoute : (hasOriginalInitialRoute ? getMaterialApp.initialRoute : null),
+      title: getMaterialApp.title,
+      initialRoute: useInitialRoute ? validatedInitialRoute : getMaterialApp.initialRoute,
       routes: getMaterialApp.routes ?? const {}, // Preserve MaterialApp routes
       getPages: hasGetPages ? enhancedGetPages : getMaterialApp.getPages,
       home: useInitialRoute ? null : getMaterialApp.home,
