@@ -669,7 +669,7 @@ class _SwiftFlutterMaterialState
             // Try callback one more time to convert route (e.g., /product/123 -> /product)
             if (widget.onDeepLink != null && initialDeepLink != null) {
               try {
-                final parsed = DeepLinkParser.parse(initialDeepLink);
+                final parsed = DeepLinkParser.parse(initialDeepLink!);
                 final callbackRouting = widget.onDeepLink!(
                   url: initialDeepLink!,
                   route: parsed.route,
@@ -1025,7 +1025,6 @@ class _NotificationAwareMaterialApp extends StatelessWidget {
       scrollBehavior: materialApp.scrollBehavior,
       shortcuts: materialApp.shortcuts,
       actions: materialApp.actions,
-      useInheritedMediaQuery: materialApp.useInheritedMediaQuery,
       home: materialApp.home,
     );
   }

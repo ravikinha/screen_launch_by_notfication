@@ -50,7 +50,6 @@ class DeepLinkHandler {
   /// Returns a Stream that emits deep link URLs.
   static Stream<String> getLinkStream() {
     try {
-      const platform = MethodChannel('screen_launch_by_notfication/deep_link');
       const eventChannel = EventChannel('screen_launch_by_notfication/deep_link_events');
       
       return eventChannel.receiveBroadcastStream().map((dynamic event) {
